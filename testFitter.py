@@ -42,7 +42,9 @@ secondDerivative = wResult.graphSecondDerivatives()
 
 # Write everything to a file
 
-outputFile = ROOT.TFile("outputfile_1stAnd2ndConstraints.root","RECREATE")
+outputFile = ROOT.TFile("outputfile_3Constraints.root","RECREATE")
+#outputFile = ROOT.TFile("outputfile_1stAnd2ndConstraints.root","RECREATE")
+#outputFile = ROOT.TFile("outputfile_only1stConstraint.root","RECREATE")
 outputFile.cd()
 hist.Write("basicData")
 result.Write("basicBkg")

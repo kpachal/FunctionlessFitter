@@ -158,23 +158,46 @@ class FunctionlessFitter :
   def getConstraints_2ndDerSmooth(self,nPars,slope=1) :
     constraints = []
 
-    for index in range(nPars-2) :
+    for index in range(nPars-3) :
     
-      # Find the two run-values for my slopes
+      # Have two consecutive bin pairs, each defining
+      # a dSlopedX of rise/run between that pair of bin centers
+      # Want to constrain such that dSlopedX1 > dSlopedX2
+    
+      # Find the various run-values for my slopes
       run1 = self.binxvals[index+1] - self.binxvals[index]
       run2 = self.binxvals[index+2] - self.binxvals[index+1]
+      run3 = self.binxvals[index+3] - self.binxvals[index+2]
     
-      # Write jacobians for these:
-      # they follow the pattern [1/run2, - (1/run1 + 1/run2), 1/run1]
-      # for the three points of interest.
+      run1prun2 = self.binxvals[index+2] - self.binxvals[index]
+      run2prun3 = self.binxvals[index+3] - self.binxvals[index+1]
+    
+      # dSlopedX1 = (slope2-slope1)/(x2-x1)
+      # dXlopedX2 = (slope3-slope2)/(x2-x1)
+      # Constraint itself then follows format
+      # (slope3 - slope2)/(x3-x2) - (slope2-slope1)/(x2-x1)
+      # slope_a = (par[b] - par[a])/run
+      # x for each slope is what? how shall I track it?
+      # Change in slope over region x1 = over run1+run2
+      # Change in slope over region x2 = over run2+run3
+      # So constraint:
+      # ((par[4]-par[3])/run3 - (par[3]-par[2])/run2)/(run2+run3) - ((par[3]-par[2])/run2 - (par[2]-par[1])/run1)/(run1+run2)
+      # (par[4]-par[3])/(run3*(run2+run3)) - (par[3]-par[2])/(run2*(run2+run3)) - (par[3]-par[2])/(run2*(run1+run2)) + (par[2]-par[1])/(run1*(run1+run2))
+    
+      # Write jacobians for this:
+      # they follow the pattern [-1/(run1*(run1+run2)), 1/(run2*(run2+run3)) + 1/(run2*(run1+run2)) + 1/(run1*(run1+run2)),
+      #                          -1/(run3*(run2+run3)) - 1/(run2*(run2+run3)) - 1/(run2*(run1+run2)), 1/(run3*(run2+run3))]
+      # for the four points of interest.
       jacString = "["
       for item in range(nPars) :
         if item == index :
-          jacString = jacString + "{0}, ".format(float(slope)/run1)
+          jacString = jacString + "{0}, ".format(-1.0*float(slope)/(run1*run1prun2))
         elif item == index+1 :
-          jacString = jacString + "{0}, ".format(- 1.0 *float(slope) * (1.0/run1 + 1.0/run2))
+          jacString = jacString + "{0}, ".format(float(slope)/(run2*run2prun3) + float(slope)/(run2*(run1prun2)) + float(slope)/(run1*run1prun2))
         elif item == index+2 :
-          jacString = jacString + "{0}, ".format(float(slope)/run2)
+          jacString = jacString + "{0}, ".format(-1.0*float(slope)/(run3*run2prun3) - float(slope)/(run2*(run2prun3)) - float(slope)/(run2*run1prun2))
+        elif item == index+3 :
+          jacString = jacString + "{0}, ".format(float(slope)/(run3*run2prun3))
         else :
           jacString = jacString + "0.0, "
       jacString = jacString+"]"
@@ -203,17 +226,18 @@ class FunctionlessFitter :
     for bin in range(self.rangeLow,self.rangeHigh+1) :
       self.bincontents.append(spectrum.GetBinContent(bin))
       self.binxvals.append(spectrum.GetBinCenter(bin))
-    start_vals = self.getStartVals_exponential()
-    #start_vals = self.getStartVals_flat()
+    #start_vals = self.getStartVals_exponential()
+    start_vals = self.getStartVals_flat()
     print start_vals
 
     myBounds = self.boundPositive()
     myConstraints = self.getConstraints_monotonicity(len(start_vals))
     myConstraints = myConstraints + self.getConstraints_1stDerSmooth(len(start_vals))
+    myConstraints = myConstraints + self.getConstraints_2ndDerSmooth(len(start_vals))
 
     print "Beginning fit to vals",self.bincontents
     #  jac=self.function_der,
-    status = scipy.optimize.minimize(self.function, start_vals, method='SLSQP', jac=self.function_der, bounds=myBounds, constraints=myConstraints, options={'disp': True, 'maxiter':10000, })
+    status = scipy.optimize.minimize(self.function, start_vals, method='SLSQP', jac=self.function_der, bounds=myBounds, constraints=myConstraints, options={'disp': True, 'maxiter':100000, })
     print status
 
     # Check that the 2nd derivative restriction worked correctly
