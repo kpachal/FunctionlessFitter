@@ -17,6 +17,12 @@ residual = infile.Get("residual")
 firstDer = infile.Get("firstDerivative")
 secondDer = infile.Get("secondDerivative")
 
+firstDerNom = infile.Get("firstDer_nominalFit")
+secondDerNom = infile.Get("secondDer_nominalFit")
+
+firstDerTF1 = infile.Get("firstDer_fromTF1")
+secondDerTF1 = infile.Get("secondDer_fromTF1")
+
 binLow = data.FindBin(1100)
 binHigh = 130
 
@@ -30,3 +36,11 @@ myPainter.drawBasicHistogram(bkg,100,129,"m_{jj}","Events","plots/figure1_zoom"+
 myPainter.drawSeveralObservedLimits([firstDer],["First derivative"],"plots/firstDerivative"+ext,"mjj","f'",3540,13,minX,maxX,-40,0.0,extraLegendLines = [], doLogY=False,doLogX=True,doRectangular=False,doLegendLocation="Right",ATLASLabelLocation="BottomL",isTomBeingDumb=False,addHorizontalLines=[])
 
 myPainter.drawSeveralObservedLimits([secondDer],["Second derivative"],"plots/secondDerivative"+ext,"mjj","f''",3540,13,minX,maxX,-1.0,3.0,extraLegendLines=[],doLogY=False,doLogX=True,doRectangular=False,doLegendLocation="Right",ATLASLabelLocation="BottomL",isTomBeingDumb=False,addHorizontalLines=[])
+
+myPainter.drawSeveralObservedLimits([firstDerNom],["First derivative"],"plots/firstDerivative_nominalFit"+ext,"mjj","f'",3540,13,minX,maxX,-40,0.0,extraLegendLines = [], doLogY=False,doLogX=True,doRectangular=False,doLegendLocation="Right",ATLASLabelLocation="BottomL",isTomBeingDumb=False,addHorizontalLines=[])
+
+myPainter.drawSeveralObservedLimits([secondDerNom],["Second derivative"],"plots/secondDerivative_nominalFit"+ext,"mjj","f''",3540,13,minX,maxX,-1.0,3.0,extraLegendLines=[],doLogY=False,doLogX=True,doRectangular=False,doLegendLocation="Right",ATLASLabelLocation="BottomL",isTomBeingDumb=False,addHorizontalLines=[])
+
+myPainter.drawSeveralObservedLimits([firstDerTF1],["First derivative"],"plots/firstDerivative_fromTF1"+ext,"mjj","f'",3540,13,minX,maxX,-40,0.0,extraLegendLines = [], doLogY=False,doLogX=True,doRectangular=False,doLegendLocation="Right",ATLASLabelLocation="BottomL",isTomBeingDumb=False,addHorizontalLines=[])
+
+myPainter.drawSeveralObservedLimits([secondDerTF1],["Second derivative"],"plots/secondDerivative_fromTF1"+ext,"mjj","f''",3540,13,minX,maxX,-1.0,3.0,extraLegendLines=[],doLogY=False,doLogX=True,doRectangular=False,doLegendLocation="Right",ATLASLabelLocation="BottomL",isTomBeingDumb=False,addHorizontalLines=[])

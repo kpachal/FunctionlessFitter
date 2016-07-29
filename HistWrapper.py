@@ -3,13 +3,14 @@ import numpy
 
 class WrappedHist :
 
-  def __init__(self,inputHist, seed = 0) :
+  def __init__(self,inputHist, seed = 0, binStructure="central") :
 
     self.histogram = inputHist
     self.getHistOutermostBinsWithData()
     self.bincontents = []
     self.binxvals = []
     self.randomNumberGenerator = ROOT.TRandom3(seed)
+    self.recordBinXVals(binStructure)
     
     return
 
@@ -32,6 +33,16 @@ class WrappedHist :
     self.lastBinWithData = lastBin
     return
 
+  def recordBinXVals(self,type) :
+    self.binxvals = []
+    for bin in range(self.histogram.GetNbinsX()+2) :
+      if type=="central" :
+        self.binxvals.append(self.histogram.GetBinCenter(bin))
+      elif type=="exp" :
+        print "exp"
+      else :
+        raise Exception( "Unrecognized bin center definition!" )
+
   def poissonFluctuateBinByBin(self) :
 
     pseudoHist = ROOT.TH1D(self.histogram)
@@ -53,34 +64,52 @@ class WrappedHist :
 
   def graphFirstDerivatives(self) :
 
+    print "Making 1st der graph from histogram."
     graph = ROOT.TGraph()
     graph.SetName("firstDerivatives_"+self.histogram.GetName())
     index = -1
     for bin in range(1,self.histogram.GetNbinsX()) :
       index = index+1
-      run = self.histogram.GetBinCenter(bin+1)-self.histogram.GetBinCenter(bin)
-      rise = self.histogram.GetBinContent(bin+1)-self.histogram.GetBinContent(bin)
+      #run = self.histogram.GetBinCenter(bin+1)-self.histogram.GetBinCenter(bin)
+      run = self.histogram.GetBinLowEdge(bin+2) - self.histogram.GetBinLowEdge(bin)
+      rise = self.histogram.GetBinContent(bin+1)/self.histogram.GetBinWidth(bin+1)-self.histogram.GetBinContent(bin)/self.histogram.GetBinWidth(bin)
       slope = rise/run
-      xval = self.histogram.GetBinCenter(bin) + 0.5*run
+      xval = self.histogram.GetBinLowEdge(bin+1)
       graph.SetPoint(index,xval,slope)
+      if xval > 1900 and xval < 2100 :
+        print "For x value",xval
+        print "found first derivative (",self.histogram.GetBinContent(bin+1)/self.histogram.GetBinWidth(bin+1),"-",self.histogram.GetBinContent(bin)/self.histogram.GetBinWidth(bin),")/",run,"=",slope
+
     self.firstDer = graph
     return self.firstDer
 
   def graphSecondDerivatives(self) :
 
+    # Bin content = height of function integrated over bin
+    # so height of function ~ bin content/bin width
+
+    # Use finite difference formulas to do this.
+    # D = (y2 - y1)/((x2 - x1)*(x2 - x0)) - (y1 - y0)/((x1 - x0)*(x2-x0))
+    
+    print "Making 2nd der graph from histogram."
     graph = ROOT.TGraph()
     graph.SetName("secondDerivatives_"+self.histogram.GetName())
     index = -1
     for bin in range(1,self.histogram.GetNbinsX()-2) :
       index = index+1
+
       run1 = self.histogram.GetBinCenter(bin+1)-self.histogram.GetBinCenter(bin)
-      rise1 = self.histogram.GetBinContent(bin+1)-self.histogram.GetBinContent(bin)
-      slope1 = rise1/run1
+      rise1 = self.histogram.GetBinContent(bin+1)/self.histogram.GetBinWidth(bin+1)-self.histogram.GetBinContent(bin)/self.histogram.GetBinWidth(bin)
       run2 = self.histogram.GetBinCenter(bin+2)-self.histogram.GetBinCenter(bin+1)
-      rise2 = self.histogram.GetBinContent(bin+2)-self.histogram.GetBinContent(bin+1)
-      slope2 = rise2/run2
+      rise2 = self.histogram.GetBinContent(bin+2)/self.histogram.GetBinWidth(bin+2)-self.histogram.GetBinContent(bin+1)/self.histogram.GetBinWidth(bin+1)
+      slope1 = rise1*100.0/run1
+      slope2 = rise2*100.0/run2
       dSlopedX = (slope2-slope1)/(run1+run2)
       xval = self.histogram.GetBinCenter(bin+1)
       graph.SetPoint(index,xval,dSlopedX)
+      if xval > 1900 and xval < 2100 :
+        print "For x value",xval
+        print "found second derivative ",dSlopedX
+
     self.secondDer = graph
     return self.secondDer
