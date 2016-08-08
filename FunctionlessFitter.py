@@ -179,89 +179,7 @@ class FunctionlessFitter :
   
     return constraints
 
-#  def getConstraints_2ndDerSmooth(self,nPars,slope=1) :
-#    constraints = []
-#
-#    for index in range(nPars-3) :
-#    
-#      # Have two consecutive bin pairs, each defining
-#      # a second derivative between that pair of bin centers
-#      # Want to constrain such that dSlopedX1 > dSlopedX2
-#    
-#      # Find the various run-values for my slopes
-#      run1 = self.selectedbinxvals[index+1] - self.selectedbinxvals[index]
-#      run2 = self.selectedbinxvals[index+2] - self.selectedbinxvals[index+1]
-#      run3 = self.selectedbinxvals[index+3] - self.selectedbinxvals[index+2]
-#      
-#      run1prun2 = self.selectedbinxvals[index+2] - self.selectedbinxvals[index]
-#      run2prun3 = self.selectedbinxvals[index+3] - self.selectedbinxvals[index+1]
-#
-#      w0 = self.selectedbinwidths[index]
-#      w1 = self.selectedbinwidths[index+1]
-#      w2 = self.selectedbinwidths[index+2]
-#      w3 = self.selectedbinwidths[index+3]
-#
-#      # Use finite difference formulas to do this.
-#      # D = (y2 - y1)/((x2 - x1)*(x2 - x0)) - (y1 - y0)/((x1 - x0)*(x2-x0)) > 0
-#      # For us, 2nd derivative should be monotonically decreasing: slope = -1
-#      # therefore, D2 - D1 > 0. Inequality is:
-#      # slope * (y3 - y2)/((x3 - x2)*(x3 - x1)) - (y2 - y1)/((x2 - x1)*(x3-x1)) -
-#      # slope * (y2 - y1)/((x2 - x1)*(x2 - x0)) - (y1 - y0)/((x1 - x0)*(x2-x0))
-#      # keeping in mind that y3 = b3/w3 etc
-#    
-#      # Write an equation string for this.
-#
-#      rise1 = "pars[{1}]/{3} - pars[{0}]/{2}".format(index,index+1,w0,w1)
-#      rise2 = "pars[{1}]/{3} - pars[{0}]/{2}".format(index+1,index+2,w1,w2)
-#      rise3 = "pars[{1}]/{3} - pars[{0}]/{2}".format(index+2,index+3,w2,w3)
-#    
-#      dSlopedX1 = "(({1}*100.0/{3}) - ({0}*100.0/{2}))/({4})".format(rise1,rise2,run1,run2,run1prun2)
-#      dSlopedX2 = "(({1}*100.0/{3}) - ({0}*100.0/{2}))/({4})".format(rise2,rise3,run2,run3,run2prun3)
-#    
-#      eqString = "["
-#      if slope < 0 : eqString = eqString + " - "
-#      eqString = eqString + dSlopedX1
-#      if slope < 0 : eqString = eqString + " + "
-#      else : eqString = eqString + " - "
-#      eqString = eqString + dSlopedX2
-#      eqString = eqString + "]"
-#      
-#      # Write jacobians for this:
-#      # d/dy0 = -slope/(run1*(run1+run2))
-#      # d/dy1 = 1/(run2*(run2+run3)) + 1/(run2*(run1+run2)) + 1/(run1*(run1+run2))
-#      # d/dy2 =
-#      # d/dy3 =
-#      # they follow the pattern [+ 1/(run1*(run1+run2)), - 1/(run2*(run1+run2)) - 1/(run1*(run1+run2)) - 1/(run2*(run2+run3)),
-#      #                          1/(run3*(run2+run3)) + 1/(run2*(run2+run3)) + 1/(run2*(run1+run2)), - 1/(run3*(run2+run3))]
-#      # for the four points of interest.
-#      jacString = "["
-#      for item in range(nPars) :
-#        if item == index :
-#          jacString = jacString + "{0}, ".format(float(slope)/(run1*run1prun2))
-#        elif item == index+1 :
-#          jacString = jacString + "{0}, ".format(-1.0*float(slope)/(run1*run1prun2) + float(slope)/(run2*(run1prun2)) - float(slope)/(run3*run2prun3))
-#        elif item == index+2 :
-#          jacString = jacString + "{0}, ".format(float(slope)/(run2*run2prun3) - float(slope)/(run2*(run1prun2)) + float(slope)/(run3*run2prun3))
-#        elif item == index+3 :
-#          jacString = jacString + "{0}, ".format(-1.0*float(slope)/(run3*run2prun3))
-#        else :
-#          jacString = jacString + "0.0, "
-#      jacString = jacString+"]"
-#
-##      code = """constraint = {0}'type': 'ineq',
-##        'fun' : lambda pars: numpy.array([(pars[{8}]-pars[{7}])/({2}*{4}) + (pars[{7}]-pars[{6}])/({1}*{4}) - (pars[{9}]-pars[{8}])/({3}*{5}) - (pars[{8}]-pars[{7}])/({2}*{5})]),
-##        'jac' : lambda pars: numpy.array({10}){11}""".format("{",run1,run2,run3,run1prun2,run2prun3,index,index+1,index+2,index+3,jacString,"}")
-#      code = """constraint = {0}'type': 'ineq',
-#        'fun' : lambda pars: numpy.array({1}){2}""".format("{",eqString,"}") #,
-#        #'jac' : lambda pars: numpy.array({2}){3}""".format("{",eqString,jacString,"}")
-#      exec code
-#      constraints.append(constraint)
-#
-#      print constraints
-
-#    return constraints
-
-  def getConstraints_2ndDerSmooth(self,nPars,slope=-1) :
+  def getConstraints_2ndDerSmooth(self,nPars,slope=1) :
     constraints = []
 
     for index in range(nPars-3) :
@@ -292,15 +210,22 @@ class FunctionlessFitter :
       # keeping in mind that y3 = b3/w3 etc
     
       # Write an equation string for this.
+
+      rise1 = "(pars[{1}]/{3} - pars[{0}]/{2})".format(index,index+1,w0,w1)
+      rise2 = "(pars[{1}]/{3} - pars[{0}]/{2})".format(index+1,index+2,w1,w2)
+      rise3 = "(pars[{1}]/{3} - pars[{0}]/{2})".format(index+2,index+3,w2,w3)
+    
+      dSlopedX1 = "(({1}*100.0/{3}) - ({0}*100.0/{2}))/({4})".format(rise1,rise2,run1,run2,run1prun2)
+      dSlopedX2 = "(({1}*100.0/{3}) - ({0}*100.0/{2}))/({4})".format(rise2,rise3,run2,run3,run2prun3)
+    
       eqString = "["
       if slope < 0 : eqString = eqString + " - "
-      eqString = eqString + "((pars[{3}]/{12} - pars[{2}]/{11})/{6} - (pars[{2}]/{11} - pars[{1}]/{10})/{5})/{8}"
+      eqString = eqString + dSlopedX1
       if slope < 0 : eqString = eqString + " + "
       else : eqString = eqString + " - "
-      eqString = eqString + " ((pars[{2}]/{11} - pars[{1}]/{10})/{5} - (pars[{1}]/{10} - pars[{0}]/{9})/{4})/{7}"
+      eqString = eqString + dSlopedX2
       eqString = eqString + "]"
-      eqString = eqString.format(index,index+1,index+2,index+3,run1,run2,run3,run1prun2,run2prun3,w0,w1,w2,w3)
-
+      
       # Write jacobians for this:
       # d/dy0 = -slope/(run1*(run1+run2))
       # d/dy1 = 1/(run2*(run2+run3)) + 1/(run2*(run1+run2)) + 1/(run1*(run1+run2))
@@ -329,12 +254,10 @@ class FunctionlessFitter :
       code = """constraint = {0}'type': 'ineq',
         'fun' : lambda pars: numpy.array({1}){2}""".format("{",eqString,"}") #,
         #'jac' : lambda pars: numpy.array({2}){3}""".format("{",eqString,jacString,"}")
-      code
       exec code
       constraints.append(constraint)
 
     return constraints
-
 
   def fit(self,spectrum,firstBin=-1,lastBin=-1) :
 
@@ -359,7 +282,6 @@ class FunctionlessFitter :
     myConstraints = myConstraints + self.getConstraints_2ndDerSmooth(len(start_vals))
 
     print "Beginning fit to vals",self.selectedbincontents
-    #  jac=self.function_der,
     status = scipy.optimize.minimize(self.function, start_vals, method='SLSQP', jac=self.function_der, bounds=myBounds, constraints=myConstraints, options={'disp': True, 'maxiter':100000, })
     print status
 

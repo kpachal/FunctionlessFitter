@@ -87,9 +87,6 @@ class WrappedHist() :
       slope = rise/run
       xval = self.histogram.GetBinLowEdge(bin+1)
       graph.SetPoint(index,xval,slope)
-      if xval > 1900 and xval < 2100 :
-        print "For x value",xval
-        print "found first derivative (",self.histogram.GetBinContent(bin+1)/self.histogram.GetBinWidth(bin+1),"-",self.histogram.GetBinContent(bin)/self.histogram.GetBinWidth(bin),")/",run,"=",slope
 
     self.firstDer = graph
     return self.firstDer
