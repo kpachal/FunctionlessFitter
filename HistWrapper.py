@@ -1,7 +1,7 @@
 import ROOT
 import numpy
 
-class WrappedHist :
+class WrappedHist() :
 
   def __init__(self,inputHist, seed = 0, binStructure="central") :
 
@@ -43,6 +43,17 @@ class WrappedHist :
       else :
         raise Exception( "Unrecognized bin center definition!" )
 
+  def getSelectedBinInfo(self,rangeLow,rangeHigh) :
+    selectedbincontents = []
+    selectedbinxvals = []
+    selectedbinwidths = []
+    for bin in range(rangeLow, rangeHigh+1) :
+      selectedbincontents.append(self.histogram.GetBinContent(bin))
+      selectedbinxvals.append(self.binxvals[bin])
+      selectedbinwidths.append(self.histogram.GetBinWidth(bin))
+    return selectedbincontents,selectedbinxvals,selectedbinwidths
+
+
   def poissonFluctuateBinByBin(self) :
 
     pseudoHist = ROOT.TH1D(self.histogram)
@@ -70,8 +81,8 @@ class WrappedHist :
     index = -1
     for bin in range(1,self.histogram.GetNbinsX()) :
       index = index+1
-      #run = self.histogram.GetBinCenter(bin+1)-self.histogram.GetBinCenter(bin)
-      run = self.histogram.GetBinLowEdge(bin+2) - self.histogram.GetBinLowEdge(bin)
+      run = self.histogram.GetBinCenter(bin+1)-self.histogram.GetBinCenter(bin)
+      #run = self.histogram.GetBinLowEdge(bin+2) - self.histogram.GetBinLowEdge(bin)
       rise = self.histogram.GetBinContent(bin+1)/self.histogram.GetBinWidth(bin+1)-self.histogram.GetBinContent(bin)/self.histogram.GetBinWidth(bin)
       slope = rise/run
       xval = self.histogram.GetBinLowEdge(bin+1)
@@ -107,9 +118,6 @@ class WrappedHist :
       dSlopedX = (slope2-slope1)/(run1+run2)
       xval = self.histogram.GetBinCenter(bin+1)
       graph.SetPoint(index,xval,dSlopedX)
-      if xval > 1900 and xval < 2100 :
-        print "For x value",xval
-        print "found second derivative ",dSlopedX
 
     self.secondDer = graph
     return self.secondDer

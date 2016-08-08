@@ -62,7 +62,6 @@ secondDerFromTF1 = ROOT.TGraph()
 secondDerFromTF1.SetName("fromTF1_secondDer")
 
 index = -1
-nominalFitTF1.Print("all")
 print "Examining TF1."
 for bin in range(1,residual.GetNbinsX()+1) :
   index = index+1
