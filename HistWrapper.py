@@ -75,7 +75,6 @@ class WrappedHist() :
 
   def graphFirstDerivatives(self) :
 
-    print "Making 1st der graph from histogram."
     graph = ROOT.TGraph()
     graph.SetName("firstDerivatives_"+self.histogram.GetName())
     index = -1
@@ -99,7 +98,8 @@ class WrappedHist() :
     # Use finite difference formulas to do this.
     # D = (y2 - y1)/((x2 - x1)*(x2 - x0)) - (y1 - y0)/((x1 - x0)*(x2-x0))
     
-    print "Making 2nd der graph from histogram."
+    print "In histogram generator"
+    
     graph = ROOT.TGraph()
     graph.SetName("secondDerivatives_"+self.histogram.GetName())
     index = -1
@@ -115,6 +115,11 @@ class WrappedHist() :
       dSlopedX = (slope2-slope1)/(run1+run2)
       xval = self.histogram.GetBinCenter(bin+1)
       graph.SetPoint(index,xval,dSlopedX)
+
+      if bin == self.histogram.FindBin(1101)+50 :
+        print run1, rise1, run2, rise2, slope1, slope2, dSlopedX
+        print "rise",rise1,"made from",self.histogram.GetBinContent(bin+1),"/",self.histogram.GetBinWidth(bin+1)," - ",self.histogram.GetBinContent(bin),"/",self.histogram.GetBinWidth(bin)
+        print "rise",rise2,"made from",self.histogram.GetBinContent(bin+2),"/",self.histogram.GetBinWidth(bin+2)," - ",self.histogram.GetBinContent(bin+1),"/",self.histogram.GetBinWidth(bin+1)
 
     self.secondDer = graph
     return self.secondDer

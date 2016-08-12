@@ -3,12 +3,12 @@ import ROOT
 
 myPainter = Morisot()
 
-#infile = ROOT.TFile("outputfile_only1stConstraint.root","READ")
-#ext = "_only1stConstraint"
+infile = ROOT.TFile("outputfile_only1stConstraint.root","READ")
+ext = "_only1stConstraint"
 #infile = ROOT.TFile("outputfile_1stAnd2ndConstraints.root","READ")
 #ext = "_1stAnd2ndConstraints"
-infile = ROOT.TFile("outputfile_3Constraints.root","READ")
-ext = "_3Constraints"
+#infile = ROOT.TFile("outputfile_3Constraints.root","READ")
+#ext = "_3Constraints"
 
 data = infile.Get("basicData")
 bkg = infile.Get("basicBkg")

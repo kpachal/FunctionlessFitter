@@ -11,6 +11,7 @@ class FunctionlessFitter :
   def __init__(self) :
     self.mode = "LogL"
     self.excludeWindow = False
+    self.result = []
 
   def function(self,pars) :
 
@@ -99,21 +100,21 @@ class FunctionlessFitter :
       # slope * (p1/w1 - p0/w0) > 0
       eqString = "["
       if slope < 0 : eqString = eqString + " - "
-      eqString = eqString+ "pars[{1}]/{3}"
+      eqString = eqString+ "pars[{1}]"
       if slope < 0 : eqString = eqString + " + "
       else : eqString = eqString + " - "
-      eqString = eqString+"pars[{0}]/{2}"
+      eqString = eqString+"pars[{0}]"
       eqString = eqString+"]"
-      eqString = eqString.format(index,index+1,w0,w1)
+      eqString = eqString.format(index,index+1)
       
       # Write jacobians for this
       # They follow the pattern: - slope/w0, slope/w1
       jacString = "["
       for item in range(nPars) :
         if item == index :
-            jacString = jacString + "{0}, ".format(float(slope)*-1.0/w0)
+            jacString = jacString + "{0}, ".format(float(slope)*-1.0)
         elif item == index+1 :
-            jacString = jacString + "{0}, ".format(float(slope)/w1)
+            jacString = jacString + "{0}, ".format(float(slope))
         else :
           jacString = jacString + "0.0, "
       jacString = jacString+"]"
@@ -133,11 +134,6 @@ class FunctionlessFitter :
     for index in range(nPars-2) :
     
       # Find the two run-values for my slopes
-      w0 = self.selectedbinwidths[index]
-      w1 = self.selectedbinwidths[index+1]
-      w2 = self.selectedbinwidths[index+2]
-      #run1 = w0 + w1
-      #run2 = w1 + w2
       run1 = self.selectedbinxvals[index+1] - self.selectedbinxvals[index]
       run2 = self.selectedbinxvals[index+2] - self.selectedbinxvals[index+1]
       
@@ -149,24 +145,24 @@ class FunctionlessFitter :
     
       eqString = "["
       if slope < 0 : eqString = eqString + " - "
-      eqString = eqString+ "(pars[{2}]/{7} - pars[{1}]/{6})/{4}"
+      eqString = eqString+ "(pars[{2}] - pars[{1}])/{4}"
       if slope < 0 : eqString = eqString + " + "
       else : eqString = eqString + " - "
-      eqString = eqString+"(pars[{1}]/{6} - pars[{0}]/{5})/{3}"
+      eqString = eqString+"(pars[{1}] - pars[{0}])/{3}"
       eqString = eqString+"]"
-      eqString = eqString.format(index,index+1,index+2,run1,run2,w0,w1,w2)
+      eqString = eqString.format(index,index+1,index+2,run1,run2)
     
       # Write jacobians for these:
-      # they follow the pattern [slope*1/(w0*run1), - (1/(w1*run1) + 1/(w2*run2)), 1/(w2*run2)]
+      # they follow the pattern [slope*1/(w0*run1), - (1/(w1*run1) + 1/(w1*run2)), 1/(w2*run2)]
       # for the three points of interest.
       jacString = "["
       for item in range(nPars) :
         if item == index :
-          jacString = jacString + "{0}, ".format(float(slope)/(w0*run1))
+          jacString = jacString + "{0}, ".format(float(slope)/(run1))
         elif item == index+1 :
-          jacString = jacString + "{0}, ".format(- 1.0 *float(slope)/w1 * (1.0/run1 + 1.0/run2))
+          jacString = jacString + "{0}, ".format(- 1.0 *float(slope) * (1.0/run1 + 1.0/run2))
         elif item == index+2 :
-          jacString = jacString + "{0}, ".format(float(slope)/(run2*w2))
+          jacString = jacString + "{0}, ".format(float(slope)/(run2))
         else :
           jacString = jacString + "0.0, "
       jacString = jacString+"]"
@@ -179,7 +175,7 @@ class FunctionlessFitter :
   
     return constraints
 
-  def getConstraints_2ndDerSmooth(self,nPars,slope=1) :
+  def getConstraints_2ndDerSmooth(self,nPars,slope=-1,debug=False) :
     constraints = []
 
     for index in range(nPars-3) :
@@ -196,64 +192,55 @@ class FunctionlessFitter :
       run1prun2 = self.selectedbinxvals[index+2] - self.selectedbinxvals[index]
       run2prun3 = self.selectedbinxvals[index+3] - self.selectedbinxvals[index+1]
 
-      w0 = self.selectedbinwidths[index]
-      w1 = self.selectedbinwidths[index+1]
-      w2 = self.selectedbinwidths[index+2]
-      w3 = self.selectedbinwidths[index+3]
-
       # Use finite difference formulas to do this.
       # D = (y2 - y1)/((x2 - x1)*(x2 - x0)) - (y1 - y0)/((x1 - x0)*(x2-x0)) > 0
       # For us, 2nd derivative should be monotonically decreasing: slope = -1
       # therefore, D2 - D1 > 0. Inequality is:
-      # slope * (y3 - y2)/((x3 - x2)*(x3 - x1)) - (y2 - y1)/((x2 - x1)*(x3-x1)) -
-      # slope * (y2 - y1)/((x2 - x1)*(x2 - x0)) - (y1 - y0)/((x1 - x0)*(x2-x0))
+      # slope * (y3 - y2)/((x3 - x2)*(x3 - x1)) - slope * (y2 - y1)/((x2 - x1)*(x3-x1)) -
+      # slope * (y2 - y1)/((x2 - x1)*(x2 - x0)) + slope * (y1 - y0)/((x1 - x0)*(x2-x0))
+      # = slope * (rise3/run3 - rise2/run2)/run2prun3 - slope * (rise2/run2 - rise1/run1)/run1prun2
       # keeping in mind that y3 = b3/w3 etc
     
       # Write an equation string for this.
 
-      rise1 = "(pars[{1}]/{3} - pars[{0}]/{2})".format(index,index+1,w0,w1)
-      rise2 = "(pars[{1}]/{3} - pars[{0}]/{2})".format(index+1,index+2,w1,w2)
-      rise3 = "(pars[{1}]/{3} - pars[{0}]/{2})".format(index+2,index+3,w2,w3)
+      rise1 = "(pars[{1}] - pars[{0}])".format(index,index+1)
+      rise2 = "(pars[{1}] - pars[{0}])".format(index+1,index+2)
+      rise3 = "(pars[{1}] - pars[{0}])".format(index+2,index+3)
     
       dSlopedX1 = "(({1}*100.0/{3}) - ({0}*100.0/{2}))/({4})".format(rise1,rise2,run1,run2,run1prun2)
       dSlopedX2 = "(({1}*100.0/{3}) - ({0}*100.0/{2}))/({4})".format(rise2,rise3,run2,run3,run2prun3)
     
       eqString = "["
       if slope < 0 : eqString = eqString + " - "
-      eqString = eqString + dSlopedX1
+      eqString = eqString + dSlopedX2
       if slope < 0 : eqString = eqString + " + "
       else : eqString = eqString + " - "
-      eqString = eqString + dSlopedX2
+      eqString = eqString + dSlopedX1
       eqString = eqString + "]"
-      
+
       # Write jacobians for this:
-      # d/dy0 = -slope/(run1*(run1+run2))
-      # d/dy1 = 1/(run2*(run2+run3)) + 1/(run2*(run1+run2)) + 1/(run1*(run1+run2))
-      # d/dy2 =
-      # d/dy3 =
-      # they follow the pattern [+ 1/(run1*(run1+run2)), - 1/(run2*(run1+run2)) - 1/(run1*(run1+run2)) - 1/(run2*(run2+run3)),
-      #                          1/(run3*(run2+run3)) + 1/(run2*(run2+run3)) + 1/(run2*(run1+run2)), - 1/(run3*(run2+run3))]
+      # d/dy0 = - 100.0*slope/(run1*run1prun2)
+      # d/dy1 = 100.0*slope/(run2*run2prun3) + (slope/run1prun2)(100.0/run1 + 100.0/run2)
+      # d/dy2 = - 100.0*slope/(run2*run1prun2) - (slope/run2prun3)(100.0/run2 + 100.0/run3)
+      # d/dy3 = 100.0*slope/(run3*run2prun3)
       # for the four points of interest.
       jacString = "["
       for item in range(nPars) :
         if item == index :
-          jacString = jacString + "{0}, ".format(float(slope)/(run1*run1prun2))
+          jacString = jacString + "{0}, ".format(-100.0*float(slope)/(run1*run1prun2))
         elif item == index+1 :
-          jacString = jacString + "{0}, ".format(-1.0*float(slope)/(run1*run1prun2) + float(slope)/(run2*(run1prun2)) - float(slope)/(run3*run2prun3))
+          jacString = jacString + "{0}, ".format(100.0*float(slope)/(run2*run2prun3) + (float(slope)/run1prun2)*(100.0/run1 + 100.0/run2))
         elif item == index+2 :
-          jacString = jacString + "{0}, ".format(float(slope)/(run2*run2prun3) - float(slope)/(run2*(run1prun2)) + float(slope)/(run3*run2prun3))
+          jacString = jacString + "{0}, ".format(-100.0*float(slope)/(run2*run1prun2) - (float(slope)/run2prun3)*(100.0/run2 + 100.0/run3))
         elif item == index+3 :
-          jacString = jacString + "{0}, ".format(-1.0*float(slope)/(run3*run2prun3))
+          jacString = jacString + "{0}, ".format(100.0*float(slope)/(run3*run2prun3))
         else :
           jacString = jacString + "0.0, "
       jacString = jacString+"]"
 
-#      code = """constraint = {0}'type': 'ineq',
-#        'fun' : lambda pars: numpy.array([(pars[{8}]-pars[{7}])/({2}*{4}) + (pars[{7}]-pars[{6}])/({1}*{4}) - (pars[{9}]-pars[{8}])/({3}*{5}) - (pars[{8}]-pars[{7}])/({2}*{5})]),
-#        'jac' : lambda pars: numpy.array({10}){11}""".format("{",run1,run2,run3,run1prun2,run2prun3,index,index+1,index+2,index+3,jacString,"}")
       code = """constraint = {0}'type': 'ineq',
-        'fun' : lambda pars: numpy.array({1}){2}""".format("{",eqString,"}") #,
-        #'jac' : lambda pars: numpy.array({2}){3}""".format("{",eqString,jacString,"}")
+        'fun' : lambda pars: numpy.array({1}),
+        'jac' : lambda pars: numpy.array({2}){3}""".format("{",eqString,jacString,"}")
       exec code
       constraints.append(constraint)
 
@@ -271,25 +258,23 @@ class FunctionlessFitter :
     else : self.rangeHigh = lastBin
     
     self.selectedbincontents, self.selectedbinxvals, self.selectedbinwidths = self.myHistogram.getSelectedBinInfo(self.rangeLow,self.rangeHigh)
-    start_vals = self.getStartVals_exponential()
-    #start_vals = self.getStartVals_flat()
-    print start_vals
+    #start_vals = self.getStartVals_exponential()
+    start_vals = self.getStartVals_flat()
 
     myBounds = self.boundPositive()
     myConstraints = self.getConstraints_monotonicity(len(start_vals))
-    myConstraints = myConstraints + self.getConstraints_1stDerSmooth(len(start_vals))
-#    myConstraints = self.getConstraints_1stDerSmooth(len(start_vals))
-    myConstraints = myConstraints + self.getConstraints_2ndDerSmooth(len(start_vals))
+    #myConstraints = myConstraints + self.getConstraints_1stDerSmooth(len(start_vals))
+    #myConstraints = myConstraints + self.getConstraints_2ndDerSmooth(len(start_vals))
 
     print "Beginning fit to vals",self.selectedbincontents
     status = scipy.optimize.minimize(self.function, start_vals, method='SLSQP', jac=self.function_der, bounds=myBounds, constraints=myConstraints, options={'disp': True, 'maxiter':100000, })
-    print status
+    #print status
 
-    # Check that the 1st derivative restriction worked correctly
-    print "slopes:",
-    for item in range(len(status.x)-1) :
-      print round((status.x[item+1]-status.x[item])/(self.selectedbinxvals[item]-self.selectedbinxvals[item+1]),6),
-    
+    self.result = status.x
+
+    # Now re-call selection of constraints to check if it makes sense
+    self.getConstraints_2ndDerSmooth(len(start_vals),debug=True)
+
     # Return a histogram with bin contents equal to fit results
     outputHist = spectrum.Clone("fitResult")
     outputHist.Reset()

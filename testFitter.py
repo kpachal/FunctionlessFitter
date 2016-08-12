@@ -29,9 +29,6 @@ binHigh = -1
 result = myFitter.fit(hist,binLow,binHigh)
 wResult = WrappedHist(result)
 
-for bin in range(1,result.GetNbinsX()) :
-  print "x, data, fit:",hist.GetBinCenter(bin),hist.GetBinContent(bin),result.GetBinContent(bin)
-
 # Get the residual of the hist
 residual = getResidual(hist,result,binLow,binHigh)
 
@@ -80,9 +77,9 @@ for bin in range(1,residual.GetNbinsX()+1) :
 
 # Write everything to a file
 
-outputFile = ROOT.TFile("outputfile_3Constraints.root","RECREATE")
+#outputFile = ROOT.TFile("outputfile_3Constraints.root","RECREATE")
 #outputFile = ROOT.TFile("outputfile_1stAnd2ndConstraints.root","RECREATE")
-#outputFile = ROOT.TFile("outputfile_only1stConstraint.root","RECREATE")
+outputFile = ROOT.TFile("outputfile_only1stConstraint.root","RECREATE")
 outputFile.cd()
 hist.Write("basicData")
 result.Write("basicBkg")
