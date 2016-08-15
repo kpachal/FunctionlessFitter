@@ -1,10 +1,38 @@
 import sys
 import os
 import ROOT
+import scipy
 
 from HistWrapper import WrappedHist
 from FunctionlessFitter import FunctionlessFitter
 from SignificanceTests import getResidual
+
+def getNthDerivative(func,degree,x,h) :
+
+  val = 0
+  for i in range(degree+1) :
+    term = pow(-1.0,i) * scipy.special.binom(degree,i) * func.Eval(x + (degree/2.0 - i)*h)
+    if degree > 1:
+      val = val + term*100.0
+    else :
+      val = val + term
+  return val/pow(h,degree)
+
+def getNthDerivativeGraphFromFunc(template, func, degree, h) :
+
+  graph = ROOT.TGraph()
+  graph.SetName("fromTF1_Der{0}".format(degree))
+
+  index = -1
+  for bin in range(1,template.GetNbinsX()+1) :
+    index = index+1
+    val = template.GetBinCenter(bin)
+    if template.GetBinLowEdge(bin) < 1101 :
+      graph.SetPoint(index,val,0.0)
+      continue
+    D = getNthDerivative(func,degree,val,h)
+    graph.SetPoint(index,val,D)
+  return graph
 
 # Make a fitter
 myFitter = FunctionlessFitter()
@@ -35,6 +63,7 @@ residual = getResidual(hist,result,binLow,binHigh)
 # Plot histogram's first and second derivatives
 firstDerivative = wResult.graphFirstDerivatives()
 secondDerivative = wResult.graphSecondDerivatives()
+thirdDerivative = wResult.graphThirdDerivatives()
 
 # Now bump hunt it
 
@@ -47,39 +76,23 @@ nominalFit.SetDirectory(0)
 wNominal = WrappedHist(nominalFit)
 firstDerNom = wNominal.graphFirstDerivatives()
 secondDerNom = wNominal.graphSecondDerivatives()
+thirdDerNom = wNominal.graphThirdDerivatives()
 
 # What about using the function?
 nominalFitTF1 = nominalFitFile.Get("theFitFunction")
 nominalFitFile.Close()
 
-# Make derivative histogram
-firstDerFromTF1 = ROOT.TGraph()
-firstDerFromTF1.SetName("fromTF1_firstDer")
-secondDerFromTF1 = ROOT.TGraph()
-secondDerFromTF1.SetName("fromTF1_secondDer")
-
-index = -1
-print "Examining TF1."
-for bin in range(1,residual.GetNbinsX()+1) :
-  index = index+1
-  val = residual.GetBinCenter(bin)
-  h = 55.0
-  valp1 = val + h
-  valm1 = val - h
-  D1 = (nominalFitTF1.Eval(valp1) - nominalFitTF1.Eval(valm1))/(2.0*h)
-  D2 = (nominalFitTF1.Eval(valp1) + nominalFitTF1.Eval(valm1) - 2.0*nominalFitTF1.Eval(val))*100/(h*h)
-  #if val > 1900 and val < 2100 :
-    #print "For x value",val
-    #print "found first derivative (",nominalFitTF1.Eval(valp1),"-",nominalFitTF1.Eval(valm1),")/",2.0*(h),"=",D1
-    #print "found second derivative",D2
-  firstDerFromTF1.SetPoint(index,val,D1)
-  secondDerFromTF1.SetPoint(index,val,D2)
+# Make derivative histograms
+firstDerFromTF1 = getNthDerivativeGraphFromFunc(residual, nominalFitTF1, 1, 55.0)
+secondDerFromTF1 = getNthDerivativeGraphFromFunc(residual, nominalFitTF1, 2, 55.0)
+thirdDerFromTF1 = getNthDerivativeGraphFromFunc(residual, nominalFitTF1, 3, 55.0)
+fourthDerFromTF1 = getNthDerivativeGraphFromFunc(residual, nominalFitTF1, 4, 55.0)
 
 # Write everything to a file
 
-#outputFile = ROOT.TFile("outputfile_3Constraints.root","RECREATE")
+outputFile = ROOT.TFile("outputfile_3Constraints.root","RECREATE")
 #outputFile = ROOT.TFile("outputfile_1stAnd2ndConstraints.root","RECREATE")
-outputFile = ROOT.TFile("outputfile_only1stConstraint.root","RECREATE")
+#outputFile = ROOT.TFile("outputfile_only1stConstraint.root","RECREATE")
 outputFile.cd()
 hist.Write("basicData")
 result.Write("basicBkg")
@@ -90,4 +103,6 @@ firstDerNom.Write("firstDer_nominalFit")
 secondDerNom.Write("secondDer_nominalFit")
 firstDerFromTF1.Write("firstDer_fromTF1")
 secondDerFromTF1.Write("secondDer_fromTF1")
+thirdDerFromTF1.Write("thirdDer_fromTF1")
+fourthDerFromTF1.Write("fourthDer_fromTF1")
 outputFile.Close()

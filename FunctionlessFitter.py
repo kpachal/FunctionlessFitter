@@ -246,6 +246,77 @@ class FunctionlessFitter :
 
     return constraints
 
+  def getConstraints_3rdDerSmooth(self,nPars,slope=-1,debug=False) :
+    constraints = []
+
+    for index in range(nPars-3) :
+    
+      # Have two consecutive bin pairs, each defining
+      # a second derivative between that pair of bin centers
+      # Want to constrain such that dSlopedX1 > dSlopedX2
+    
+      # Find the various run-values for my slopes
+      run1 = self.selectedbinxvals[index+1] - self.selectedbinxvals[index]
+      run2 = self.selectedbinxvals[index+2] - self.selectedbinxvals[index+1]
+      run3 = self.selectedbinxvals[index+3] - self.selectedbinxvals[index+2]
+      
+      run1prun2 = self.selectedbinxvals[index+2] - self.selectedbinxvals[index]
+      run2prun3 = self.selectedbinxvals[index+3] - self.selectedbinxvals[index+1]
+
+      # Use finite difference formulas to do this.
+      # D = (y2 - y1)/((x2 - x1)*(x2 - x0)) - (y1 - y0)/((x1 - x0)*(x2-x0)) > 0
+      # For us, 2nd derivative should be monotonically decreasing: slope = -1
+      # therefore, D2 - D1 > 0. Inequality is:
+      # slope * (y3 - y2)/((x3 - x2)*(x3 - x1)) - slope * (y2 - y1)/((x2 - x1)*(x3-x1)) -
+      # slope * (y2 - y1)/((x2 - x1)*(x2 - x0)) + slope * (y1 - y0)/((x1 - x0)*(x2-x0))
+      # = slope * (rise3/run3 - rise2/run2)/run2prun3 - slope * (rise2/run2 - rise1/run1)/run1prun2
+      # keeping in mind that y3 = b3/w3 etc
+    
+      # Write an equation string for this.
+
+      rise1 = "(pars[{1}] - pars[{0}])".format(index,index+1)
+      rise2 = "(pars[{1}] - pars[{0}])".format(index+1,index+2)
+      rise3 = "(pars[{1}] - pars[{0}])".format(index+2,index+3)
+    
+      dSlopedX1 = "(({1}*100.0/{3}) - ({0}*100.0/{2}))/({4})".format(rise1,rise2,run1,run2,run1prun2)
+      dSlopedX2 = "(({1}*100.0/{3}) - ({0}*100.0/{2}))/({4})".format(rise2,rise3,run2,run3,run2prun3)
+    
+      eqString = "["
+      if slope < 0 : eqString = eqString + " - "
+      eqString = eqString + dSlopedX2
+      if slope < 0 : eqString = eqString + " + "
+      else : eqString = eqString + " - "
+      eqString = eqString + dSlopedX1
+      eqString = eqString + "]"
+
+      # Write jacobians for this:
+      # d/dy0 = - 100.0*slope/(run1*run1prun2)
+      # d/dy1 = 100.0*slope/(run2*run2prun3) + (slope/run1prun2)(100.0/run1 + 100.0/run2)
+      # d/dy2 = - 100.0*slope/(run2*run1prun2) - (slope/run2prun3)(100.0/run2 + 100.0/run3)
+      # d/dy3 = 100.0*slope/(run3*run2prun3)
+      # for the four points of interest.
+      jacString = "["
+      for item in range(nPars) :
+        if item == index :
+          jacString = jacString + "{0}, ".format(-100.0*float(slope)/(run1*run1prun2))
+        elif item == index+1 :
+          jacString = jacString + "{0}, ".format(100.0*float(slope)/(run2*run2prun3) + (float(slope)/run1prun2)*(100.0/run1 + 100.0/run2))
+        elif item == index+2 :
+          jacString = jacString + "{0}, ".format(-100.0*float(slope)/(run2*run1prun2) - (float(slope)/run2prun3)*(100.0/run2 + 100.0/run3))
+        elif item == index+3 :
+          jacString = jacString + "{0}, ".format(100.0*float(slope)/(run3*run2prun3))
+        else :
+          jacString = jacString + "0.0, "
+      jacString = jacString+"]"
+
+      code = """constraint = {0}'type': 'ineq',
+        'fun' : lambda pars: numpy.array({1}),
+        'jac' : lambda pars: numpy.array({2}){3}""".format("{",eqString,jacString,"}")
+      exec code
+      constraints.append(constraint)
+
+    return constraints
+
   def fit(self,spectrum,firstBin=-1,lastBin=-1) :
 
     self.myHistogram = WrappedHist(spectrum)
@@ -263,17 +334,14 @@ class FunctionlessFitter :
 
     myBounds = self.boundPositive()
     myConstraints = self.getConstraints_monotonicity(len(start_vals))
-    #myConstraints = myConstraints + self.getConstraints_1stDerSmooth(len(start_vals))
-    #myConstraints = myConstraints + self.getConstraints_2ndDerSmooth(len(start_vals))
+    myConstraints = myConstraints + self.getConstraints_1stDerSmooth(len(start_vals))
+    myConstraints = myConstraints + self.getConstraints_2ndDerSmooth(len(start_vals))
 
     print "Beginning fit to vals",self.selectedbincontents
     status = scipy.optimize.minimize(self.function, start_vals, method='SLSQP', jac=self.function_der, bounds=myBounds, constraints=myConstraints, options={'disp': True, 'maxiter':100000, })
     #print status
 
     self.result = status.x
-
-    # Now re-call selection of constraints to check if it makes sense
-    self.getConstraints_2ndDerSmooth(len(start_vals),debug=True)
 
     # Return a histogram with bin contents equal to fit results
     outputHist = spectrum.Clone("fitResult")

@@ -123,3 +123,37 @@ class WrappedHist() :
 
     self.secondDer = graph
     return self.secondDer
+
+  def graphThirdDerivatives(self) :
+
+    # Bin content = height of function integrated over bin
+    # so height of function ~ bin content/bin width
+
+    # Use finite difference formulas to do this.
+    # D = (y2 - y1)/((x2 - x1)*(x2 - x0)) - (y1 - y0)/((x1 - x0)*(x2-x0))
+    
+    print "In histogram generator"
+    
+    graph = ROOT.TGraph()
+    graph.SetName("secondDerivatives_"+self.histogram.GetName())
+    index = -1
+    for bin in range(1,self.histogram.GetNbinsX()-3) :
+      index = index+1
+
+      run1 = self.histogram.GetBinCenter(bin+1)-self.histogram.GetBinCenter(bin)
+      rise1 = self.histogram.GetBinContent(bin+1)/self.histogram.GetBinWidth(bin+1)-self.histogram.GetBinContent(bin)/self.histogram.GetBinWidth(bin)
+      run2 = self.histogram.GetBinCenter(bin+2)-self.histogram.GetBinCenter(bin+1)
+      rise2 = self.histogram.GetBinContent(bin+2)/self.histogram.GetBinWidth(bin+2)-self.histogram.GetBinContent(bin+1)/self.histogram.GetBinWidth(bin+1)
+      run3 = self.histogram.GetBinCenter(bin+3)-self.histogram.GetBinCenter(bin+2)
+      rise3 = self.histogram.GetBinContent(bin+3)/self.histogram.GetBinWidth(bin+3)-self.histogram.GetBinContent(bin+2)/self.histogram.GetBinWidth(bin+2)
+      slope1 = rise1*100.0/run1
+      slope2 = rise2*100.0/run2
+      slope3 = rise3*100.0/run3
+      dSlopedX1 = (slope2-slope1)/(run1+run2)
+      dSlopedX2 = (slope3-slope2)/(run2+run3)
+      distance = self.histogram.GetBinCenter(bin+2) - self.histogram.GetBinCenter(bin+1)
+      xval = self.histogram.GetBinLowEdge(bin+2)
+      graph.SetPoint(index,xval,(dSlopedX2-dSlopedX1)/distance)
+
+    self.thirdDer = graph
+    return self.thirdDer
