@@ -60,10 +60,11 @@ wResult = WrappedHist(result)
 # Get the residual of the hist
 residual = getResidual(hist,result,binLow,binHigh)
 
-# Plot histogram's first and second derivatives
-firstDerivative = wResult.graphFirstDerivatives()
-secondDerivative = wResult.graphSecondDerivatives()
-thirdDerivative = wResult.graphThirdDerivatives()
+## Plot histogram's first and second derivatives
+wResult.graphUpToNthDerivatives(3)
+firstDerivative = wResult.der1
+secondDerivative = wResult.der2
+thirdDerivative = wResult.der3
 
 # Now bump hunt it
 
@@ -74,9 +75,10 @@ nominalFitFile = ROOT.TFile("samples/Step1_SearchPhase_mjj_Data_2015_3p57fb_fluc
 nominalFit = nominalFitFile.Get("basicBkgFrom4ParamFit")
 nominalFit.SetDirectory(0)
 wNominal = WrappedHist(nominalFit)
-firstDerNom = wNominal.graphFirstDerivatives()
-secondDerNom = wNominal.graphSecondDerivatives()
-thirdDerNom = wNominal.graphThirdDerivatives()
+wNominal.graphUpToNthDerivatives(3)
+firstDerNom = wNominal.der1
+secondDerNom = wNominal.der2
+thirdDerNom = wNominal.der3
 
 # What about using the function?
 nominalFitTF1 = nominalFitFile.Get("theFitFunction")
@@ -99,6 +101,7 @@ result.Write("basicBkg")
 residual.Write("residual")
 firstDerivative.Write("firstDerivative")
 secondDerivative.Write("secondDerivative")
+thirdDerivative.Write("thirdDerivative")
 firstDerNom.Write("firstDer_nominalFit")
 secondDerNom.Write("secondDer_nominalFit")
 firstDerFromTF1.Write("firstDer_fromTF1")

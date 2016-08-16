@@ -53,7 +53,6 @@ class WrappedHist() :
       selectedbinwidths.append(self.histogram.GetBinWidth(bin))
     return selectedbincontents,selectedbinxvals,selectedbinwidths
 
-
   def poissonFluctuateBinByBin(self) :
 
     pseudoHist = ROOT.TH1D(self.histogram)
@@ -73,87 +72,57 @@ class WrappedHist() :
 
     return pseudoHist
 
-  def graphFirstDerivatives(self) :
-
-    graph = ROOT.TGraph()
-    graph.SetName("firstDerivatives_"+self.histogram.GetName())
-    index = -1
-    for bin in range(1,self.histogram.GetNbinsX()) :
-      index = index+1
-      run = self.histogram.GetBinCenter(bin+1)-self.histogram.GetBinCenter(bin)
-      #run = self.histogram.GetBinLowEdge(bin+2) - self.histogram.GetBinLowEdge(bin)
-      rise = self.histogram.GetBinContent(bin+1)/self.histogram.GetBinWidth(bin+1)-self.histogram.GetBinContent(bin)/self.histogram.GetBinWidth(bin)
-      slope = rise/run
-      xval = self.histogram.GetBinLowEdge(bin+1)
-      graph.SetPoint(index,xval,slope)
-
-    self.firstDer = graph
-    return self.firstDer
-
-  def graphSecondDerivatives(self) :
-
-    # Bin content = height of function integrated over bin
-    # so height of function ~ bin content/bin width
-
-    # Use finite difference formulas to do this.
-    # D = (y2 - y1)/((x2 - x1)*(x2 - x0)) - (y1 - y0)/((x1 - x0)*(x2-x0))
+  def graphUpToNthDerivatives(self,degree) :
     
-    print "In histogram generator"
+    graphs = {}
+    for order in range(1,degree+1) :
+      graph = ROOT.TGraph()
+      name = "Derivatives_new_"+self.histogram.GetName()
+      if order == 1 :
+        name = "1st"+name
+      elif order == 2 :
+        name = "2nd"+name
+      elif order == 3 :
+        name = "3rd"+name
+      else :
+        name = "{0}th".format(order)+name
+      graph.SetName(name)
+      graphs[order] = graph
+
+    dividedDifferenceDatabase = {}
     
-    graph = ROOT.TGraph()
-    graph.SetName("secondDerivatives_"+self.histogram.GetName())
-    index = -1
-    for bin in range(1,self.histogram.GetNbinsX()-2) :
-      index = index+1
+    # 0th degree
+    baseDict = {}
+    for bin in range(len(self.binxvals)) :
+      baseDict[bin] = self.histogram.GetBinContent(bin)/self.histogram.GetBinWidth(bin)
+    dividedDifferenceDatabase[0] = baseDict
 
-      run1 = self.histogram.GetBinCenter(bin+1)-self.histogram.GetBinCenter(bin)
-      rise1 = self.histogram.GetBinContent(bin+1)/self.histogram.GetBinWidth(bin+1)-self.histogram.GetBinContent(bin)/self.histogram.GetBinWidth(bin)
-      run2 = self.histogram.GetBinCenter(bin+2)-self.histogram.GetBinCenter(bin+1)
-      rise2 = self.histogram.GetBinContent(bin+2)/self.histogram.GetBinWidth(bin+2)-self.histogram.GetBinContent(bin+1)/self.histogram.GetBinWidth(bin+1)
-      slope1 = rise1*100.0/run1
-      slope2 = rise2*100.0/run2
-      dSlopedX = (slope2-slope1)/(run1+run2)
-      xval = self.histogram.GetBinCenter(bin+1)
-      graph.SetPoint(index,xval,dSlopedX)
+    for order in range(1,degree+1) :
 
-      if bin == self.histogram.FindBin(1101)+50 :
-        print run1, rise1, run2, rise2, slope1, slope2, dSlopedX
-        print "rise",rise1,"made from",self.histogram.GetBinContent(bin+1),"/",self.histogram.GetBinWidth(bin+1)," - ",self.histogram.GetBinContent(bin),"/",self.histogram.GetBinWidth(bin)
-        print "rise",rise2,"made from",self.histogram.GetBinContent(bin+2),"/",self.histogram.GetBinWidth(bin+2)," - ",self.histogram.GetBinContent(bin+1),"/",self.histogram.GetBinWidth(bin+1)
+      lastorderdict = dividedDifferenceDatabase[int(order-1)]
+      thisorderdict = {}
 
-    self.secondDer = graph
-    return self.secondDer
+      for bin in range(self.histogram.GetNbinsX()+2 - order) :
+        fxa = lastorderdict[bin]
+        fxb = lastorderdict[bin+1]
+        diff = (fxb - fxa)/(self.binxvals[bin+order]-self.binxvals[bin])
+        
+        # Bins used range from bin to bin+degree inclusive.
+        # Even orders use center of middle bin
+        if order%2==0 :
+          xval = self.binxvals[bin+int(float(order)/2.0)]
+        # Odd orders use bin boundary between central two bins
+        else :
+          xval = self.histogram.GetBinLowEdge(bin+int(numpy.ceil(float(order)/2.0)))
 
-  def graphThirdDerivatives(self) :
+        thisorderdict[bin] = diff
+        graphs[order].SetPoint(bin,xval,diff)
 
-    # Bin content = height of function integrated over bin
-    # so height of function ~ bin content/bin width
+      dividedDifferenceDatabase[int(order)] = thisorderdict
 
-    # Use finite difference formulas to do this.
-    # D = (y2 - y1)/((x2 - x1)*(x2 - x0)) - (y1 - y0)/((x1 - x0)*(x2-x0))
-    
-    print "In histogram generator"
-    
-    graph = ROOT.TGraph()
-    graph.SetName("secondDerivatives_"+self.histogram.GetName())
-    index = -1
-    for bin in range(1,self.histogram.GetNbinsX()-3) :
-      index = index+1
+    for order in range(1,degree+1) :
+      code = "self.der{0} = graphs[{0}]".format(order)
+      exec code
 
-      run1 = self.histogram.GetBinCenter(bin+1)-self.histogram.GetBinCenter(bin)
-      rise1 = self.histogram.GetBinContent(bin+1)/self.histogram.GetBinWidth(bin+1)-self.histogram.GetBinContent(bin)/self.histogram.GetBinWidth(bin)
-      run2 = self.histogram.GetBinCenter(bin+2)-self.histogram.GetBinCenter(bin+1)
-      rise2 = self.histogram.GetBinContent(bin+2)/self.histogram.GetBinWidth(bin+2)-self.histogram.GetBinContent(bin+1)/self.histogram.GetBinWidth(bin+1)
-      run3 = self.histogram.GetBinCenter(bin+3)-self.histogram.GetBinCenter(bin+2)
-      rise3 = self.histogram.GetBinContent(bin+3)/self.histogram.GetBinWidth(bin+3)-self.histogram.GetBinContent(bin+2)/self.histogram.GetBinWidth(bin+2)
-      slope1 = rise1*100.0/run1
-      slope2 = rise2*100.0/run2
-      slope3 = rise3*100.0/run3
-      dSlopedX1 = (slope2-slope1)/(run1+run2)
-      dSlopedX2 = (slope3-slope2)/(run2+run3)
-      distance = self.histogram.GetBinCenter(bin+2) - self.histogram.GetBinCenter(bin+1)
-      xval = self.histogram.GetBinLowEdge(bin+2)
-      graph.SetPoint(index,xval,(dSlopedX2-dSlopedX1)/distance)
 
-    self.thirdDer = graph
-    return self.thirdDer
+
