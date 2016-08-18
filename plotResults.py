@@ -3,12 +3,15 @@ import ROOT
 
 myPainter = Morisot()
 
-infile = ROOT.TFile("outputfile_only1stConstraint.root","READ")
-ext = "_only1stConstraint"
+#infile = ROOT.TFile("outputfile_only1stConstraint.root","READ")
+#ext = "_only1stConstraint"
 #infile = ROOT.TFile("outputfile_1stAnd2ndConstraints.root","READ")
 #ext = "_1stAnd2ndConstraints"
 #infile = ROOT.TFile("outputfile_3Constraints.root","READ")
 #ext = "_3Constraints"
+
+infile = ROOT.TFile("outputfile_TLA.root","READ")
+ext = "TLA"
 
 data = infile.Get("basicData")
 bkg = infile.Get("basicBkg")
@@ -23,8 +26,13 @@ secondDerNom = infile.Get("secondDer_nominalFit")
 firstDerTF1 = infile.Get("firstDer_fromTF1")
 secondDerTF1 = infile.Get("secondDer_fromTF1")
 
-binLow = data.FindBin(1100)
-binHigh = 130
+if "TLA" in ext :
+  binLow = data.FindBin(395)
+  binHigh = data.FindBin(1252)
+
+else :
+  binLow = data.FindBin(1100)
+  binHigh = 130
 
 minX = data.GetBinLowEdge(binLow)
 maxX = data.GetBinLowEdge(binHigh+1)
