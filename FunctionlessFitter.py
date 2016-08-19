@@ -14,6 +14,14 @@ class FunctionlessFitter :
     self.result = []
     self.dividedDifferenceDatabase = {}
     self.jacobianDatabase = {}
+    
+    # Currently supported: "exp", "flat", "linear"
+    self.startValFormat = "exp"
+    self.flatStartVal = 1.0
+  
+    # Keys are order of derivative to restrict,
+    # mapped values are sign of slope of derivative
+    self.derivativeConstraints = {0:-1, 1:1, 2:-1, 3:1}
   
   def function(self,pars) :
 
@@ -44,14 +52,21 @@ class FunctionlessFitter :
   
     start_vals = []
     for bin in range(len(self.selectedbincontents)) :
-      start_vals.append(1.0)
+      start_vals.append(self.flatStartVal)
     return start_vals
 
   def getStartVals_linear(self) :
     if not self.selectedbincontents :
       print "Fill bins first!"
       return -1
-    return []
+    
+    run = self.selectedbinxvals[-1] - self.selectedbinxvals[0]
+    slope = (self.selectedbincontents[-1] - self.selectedbincontents[0])/run
+    start_vals = []
+    for bin in range(len(self.selectedbincontents)) :
+      val = self.selectedbincontents[0] + slope*((self.selectedbinxvals[bin]-self.selectedbinxvals[0])/run)
+      start_vals.append(val)
+    return start_vals
     
   def getStartVals_exponential(self) :
     if not self.selectedbincontents :
@@ -174,37 +189,42 @@ class FunctionlessFitter :
 
   def fit(self,spectrum,firstBin=-1,lastBin=-1) :
 
-    self.myHistogram = WrappedHist(spectrum)
-
-    if firstBin < 0 or firstBin > spectrum.GetNbinsX() :
-      self.rangeLow = self.myHistogram.firstBinWithData
+    if firstBin < 0 or firstBin > spectrum.histogram.GetNbinsX() :
+      self.rangeLow = spectrum.firstBinWithData
     else : self.rangeLow = firstBin
-    if lastBin < 0 or lastBin > spectrum.GetNbinsX() or lastBin < firstBin :
-      self.rangeHigh = self.myHistogram.lastBinWithData
+    if lastBin < 0 or lastBin > spectrum.histogram.GetNbinsX() or lastBin < firstBin :
+      self.rangeHigh = spectrum.lastBinWithData
     else : self.rangeHigh = lastBin
     
-    self.selectedbincontents, self.selectedbinxvals, self.selectedbinwidths = self.myHistogram.getSelectedBinInfo(self.rangeLow,self.rangeHigh)
-    start_vals = self.getStartVals_exponential()
-    #start_vals = self.getStartVals_flat()
+    self.selectedbincontents, self.selectedbinxvals, self.selectedbinwidths = spectrum.getSelectedBinInfo(self.rangeLow,self.rangeHigh)
+    
+    if self.startValFormat == "exp" :
+      start_vals = self.getStartVals_exponential()
+    elif self.startValFormat == "flat" :
+      start_vals = self.getStartVals_flat()
+    elif self.startValFormat == "linear" :
+      start_vals = self.getStartVals_linear()
+    else :
+      raise ValueError("Requested start value format is unrecognized!")
 
     myBounds = self.boundPositive()
     
     # Calculate values to use for constraints: saves us doing it later
-    self.computeConstraints(4)
-    myConstraints = self.getDerivativeConstraints(0,-1)
-    myConstraints = myConstraints + self.getDerivativeConstraints(1,1)
-    #myConstraints = myConstraints + self.getDerivativeConstraints(2,-1)
-    #myConstraints = myConstraints + self.getDerivativeConstraints(3,1)
-    #myConstraints = myConstraints + self.getDerivativeConstraints(4,-1)
+    orders = self.derivativeConstraints.keys()
+    self.computeConstraints(max(orders))
+    myConstraints = []
+    for order in orders :
+      slope = self.derivativeConstraints[order]
+      myConstraints = myConstraints + self.getDerivativeConstraints(order,slope)
 
     print "Beginning fit to vals",self.selectedbincontents
     status = scipy.optimize.minimize(self.function, start_vals, method='SLSQP', jac=self.function_der, bounds=myBounds, constraints=myConstraints, options={'disp': True, 'maxiter':100000, })
-    #print status
+    print status
 
     self.result = status.x
 
     # Return a histogram with bin contents equal to fit results
-    outputHist = spectrum.Clone("fitResult")
+    outputHist = spectrum.histogram.Clone("fitResult")
     outputHist.Reset()
     index = -1
     for bin in range(self.rangeLow,self.rangeHigh+1) :

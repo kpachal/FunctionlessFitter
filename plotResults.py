@@ -39,8 +39,6 @@ maxX = data.GetBinLowEdge(binHigh+1)
 
 myPainter.drawDataAndFitOverSignificanceHist(data,bkg,residual,"m_{jj}","Events","Sign.","plots/figure1"+ext,3640,13,-1,-1,binLow,binHigh,doBumpLimits=False,bumpLow=0,bumpHigh=0,extraLegendLines=[],doLogX=True,doRectangular=False,setYRange=[],writeOnpval = False, pval = -999,doWindowLimits=False,windowLow=0,windowHigh=0)
 
-myPainter.drawBasicHistogram(bkg,100,129,"m_{jj}","Events","plots/figure1_zoom"+ext,True,True,True,yLow=0.001,yHigh=12.0)
-
 myPainter.drawSeveralObservedLimits([firstDer],["First derivative"],"plots/firstDerivative"+ext,"mjj","f'",3540,13,minX,maxX,-40,0.0,extraLegendLines = [], doLogY=False,doLogX=True,doRectangular=False,doLegendLocation="Right",ATLASLabelLocation="BottomL",isTomBeingDumb=False,addHorizontalLines=[])
 
 myPainter.drawSeveralObservedLimits([secondDer],["Second derivative"],"plots/secondDerivative"+ext,"mjj","f''",3540,13,minX,maxX,-1.0,3.0,extraLegendLines=[],doLogY=False,doLogX=True,doRectangular=False,doLegendLocation="Right",ATLASLabelLocation="BottomL",isTomBeingDumb=False,addHorizontalLines=[])
