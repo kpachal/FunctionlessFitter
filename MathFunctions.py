@@ -1,7 +1,8 @@
+import ROOT
 import numpy
 import scipy
 
-def PoissonPVal(data, bkg) :
+def poissonPVal(data, bkg) :
 
   # Scipy has a function which is the sum of the first k terms
   # of the Poisson distribution: sum(exp(-m) * m**j / j!, j=0..k).
@@ -18,11 +19,11 @@ def PoissonPVal(data, bkg) :
 
   return answer
 
-def PoissonConvGammaPVal(data, bkg, bkgErr) :
+def poissonConvGammaPVal(data, bkg, bkgErr) :
 
   return PoissonPVal(data, bkg)
 
-def ProbToSigma(prob) :
+def probToSigma(prob) :
 
   assert(prob >=0 and prob <=1)
   
@@ -37,6 +38,35 @@ def ProbToSigma(prob) :
   elif (value==1) : return 1E10
   else : return -1E10
 
-def SigmaToProb(sigma) :
+def sigmaToProb(sigma) :
 
   return 0.5*(1.0 - scipy.special.erf(sigma/sqrt(2.0)))
+
+def makeHistFromVector(vector) :
+
+  nentries = len(vector)
+  nBins = int(float(nentries)/10.0)
+
+  maxVal = max(vector)
+  minVal = min(vector)
+  range = maxVal - minVal
+
+  plotmin = minVal-0.05*range
+  plotmax = maxVal+0.05*range
+
+  statPlot = ROOT.TH1D("statPlot","",nBins,plotmin,plotmax)
+  for item in vector : statPlot.Fill(item)
+
+  return statPlot;
+
+def getPValFromVecAndStat(stat,vector) :
+
+  vec = sorted(vector)
+  nBelow = 0
+  for item in vec :
+    if item < stat :
+      nBelow = nBelow+1
+    else : break
+
+  pVal = float(len(vector)-nBelow)/float(len(vector))
+  return pVal

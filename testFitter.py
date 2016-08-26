@@ -6,16 +6,17 @@ import scipy
 from HistWrapper import WrappedHist
 from FunctionlessFitter import FunctionlessFitter
 from SignificanceTests import getResidual
+from BumpHunter import BumpHunter
+from Chi2Test import Chi2Test
+from LogLikelihoodTest import LogLikelihoodTest
+from PseudoExperimenter import PseudoExperimenter
 
 def getNthDerivative(func,degree,x,h) :
 
   val = 0
   for i in range(degree+1) :
     term = pow(-1.0,i) * scipy.special.binom(degree,i) * func.Eval(x + (degree/2.0 - i)*h)
-    if degree > 1:
-      val = val + term*100.0
-    else :
-      val = val + term
+    val = val + term
   return val/pow(h,degree)
 
 def getNthDerivativeGraphFromFunc(template, func, degree, h) :
@@ -40,8 +41,9 @@ class RunFitter :
     # Make a fitter
     self.myFitter = FunctionlessFitter()
 
-    #self.setEOYEValues()
-    self.setTLAValues()
+    self.setEOYEValues()
+    #self.setTLAValues()
+    #self.setICHEPValues()
 
   def setEOYEValues(self) :
 
@@ -55,9 +57,20 @@ class RunFitter :
     self.binLow = self.hist.FindBin(1101)
     self.binHigh = -1
 
-    self.outputFileName = "outputfile_3Constraints.root"
-    #outputFileName = "outputfile_1stAnd2ndConstraints.root"
-    #outputFileName = "outputfile_only1stConstraint.root"
+    #self.outputFileName = "results/test/outputfile_0thOrderConstraint.root"
+    #self.outputFileName = "results/test/outputfile_1stOrderConstraint.root"
+    #self.outputFileName = "results/test/outputfile_2ndOrderConstraint.root"
+    self.outputFileName = "results/test/outputfile_3rdOrderConstraint.root"
+    #self.outputFileName = "results/test/outputfile_4thOrderConstraint.root"
+
+    #self.myFitter.derivativeConstraints = {0:-1}
+    #self.myFitter.derivativeConstraints = {0:-1, 1:1}
+    #self.myFitter.derivativeConstraints = {0:-1, 1:1, 2:-1}
+    self.myFitter.derivativeConstraints = {0:-1, 1:1, 2:-1, 3:1}
+    #self.myFitter.derivativeConstraints = {0:-1, 1:1, 2:-1, 3:1, 4:-1}
+
+    self.myFitter.startValFormat = "flat"
+    self.myFitter.flatStartVal = 1.0
 
   def setTLAValues(self) :
 
@@ -69,13 +82,36 @@ class RunFitter :
     self.infile.Close()
 
     self.binLow = self.hist.FindBin(395)
-    self.binHigh = self.hist.FindBin(1252)
+    self.binHigh = self.hist.FindBin(1100) #1252
 
-    self.outputFileName = "outputfile_TLA.root"
+    self.myFitter.derivativeConstraints = {0:-1, 1:1, 2:-1, 3:1}
 
+    self.myFitter.startValFormat = "flat"
+    self.myFitter.flatStartVal = 5E4
+    
+    self.outputFileName = "results/test/outputfile_TLA.root"
+
+  def setICHEPValues(self) :
+
+    # Get a histogram we want to fit. I'll use dijets EOYE.
+    self.infile = ROOT.TFile("samples/dataLikeHistograms.2016_DS2p1_Resonance_Fixed.root")
+    #self.nominalFitFile = ROOT.TFile("samples/SearchResultData_UA2_fullDataset_yStar0p3_from394_permitWindow.root","READ")
+    self.hist = self.infile.Get("Nominal/mjj_Data_2016_15p7fb")
+    self.hist.SetDirectory(0)
+    self.infile.Close()
+
+    self.binLow = self.hist.FindBin(1100)
+    self.binHigh = -1
+
+    self.myFitter.derivativeConstraints = {0:-1, 1:1, 2:-1, 3:1}
+    #self.myFitter.derivativeConstraints = {0:-1, 1:1, 2:-1, 3:1, 4:-1}
+
+    self.outputFileName = "results/test/outputfile_ICHEP.root"
+  
   def executeFit(self) :
 
-    result = self.myFitter.fit(self.hist,self.binLow,self.binHigh)
+    wInput = WrappedHist(self.hist)
+    result = self.myFitter.fit(wInput,self.binLow,self.binHigh)
     result.SetDirectory(0)
     wResult = WrappedHist(result)
 
@@ -90,9 +126,13 @@ class RunFitter :
     thirdDerivative = wResult.der3
     fourthDerivative = wResult.der4
 
-    # Now bump hunt it
-
-
+    # Make a bump hunter
+    bumpHunter = BumpHunter()
+    bumpHunter.minBinsInBump = 2
+    bumpHunter.useSidebands = False
+    
+    # Bump hunt fitted data
+    bhStat = bumpHunter.doTest(wInput, wResult, self.binLow,self.binHigh)
 
     # Compare to nominal fit result from the old code
     nominalFit = self.nominalFitFile.Get("basicBkgFrom4ParamFit")
@@ -103,6 +143,31 @@ class RunFitter :
     secondDerNom = wNominal.der2
     thirdDerNom = wNominal.der3
     fourthDerNom = wNominal.der4
+
+    # Bump hunt with the old fit
+    bhStatNom = bumpHunter.doTest(wInput, wNominal, self.binLow,self.binHigh)
+
+    # Do PEs and get an actual p-value.
+    # Make some other tests to perform, too.
+    PEMaker = PseudoExperimenter()
+    mychi2Test = Chi2Test()
+    myLogLTest = LogLikelihoodTest()
+    PEDict = PEMaker.getPseudoexperiments(wInput,wResult,[bumpHunter,mychi2Test,myLogLTest],self.binLow,self.binHigh,nPEs=50)
+    BHPVal = PEDict[0]["pValue"]
+    statHist = PEDict[0]["statHist"]
+    
+    # ... and old fit
+    NomPEDict = PEMaker.getPseudoexperiments(wInput,wNominal,[bumpHunter,mychi2Test,myLogLTest],self.binLow,self.binHigh,nPEs=1000)
+
+    # How does it compare to my C++ BumpHunter?
+    bhStatNomOfficial = self.nominalFitFile.Get("bumpHunterStatOfFitToData")[0]
+    bhPValNomOfficial = self.nominalFitFile.Get("bumpHunterStatOfFitToData")[1]
+    print "BH stat from nominal fit, original:",bhStatNomOfficial
+    print "BH stat from nominal fit, my BH:",bhStatNom
+    print "BH pval from nominal fit, original:",bhPValNomOfficial
+    print "BH pval from nominal fit, my PE:",NomPEDict[0]["pValue"]
+    print "BH stat from functionless fit:",bhStat
+    print "BH pval from functionless fit:",PEDict[0]["pValue"]
 
     # What about using the function?
     nominalFitTF1 = self.nominalFitFile.Get("theFitFunction")

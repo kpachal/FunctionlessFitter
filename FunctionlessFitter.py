@@ -14,6 +14,8 @@ class FunctionlessFitter :
     self.result = []
     self.dividedDifferenceDatabase = {}
     self.jacobianDatabase = {}
+    self.firstBinInWindow = -1
+    self.lastBinInWindow = -1
     
     # Currently supported: "exp", "flat", "linear"
     self.startValFormat = "exp"
@@ -106,6 +108,13 @@ class FunctionlessFitter :
       start_vals.append(y)
     return start_vals
 
+
+  def getStartVals_fromInput(self,vec) :
+  
+    start_vals = []
+  
+    return start_vals
+  
   def computeConstraints(self, degree) :
 
     # 0th degree derivatives
@@ -196,7 +205,7 @@ class FunctionlessFitter :
       self.rangeHigh = spectrum.lastBinWithData
     else : self.rangeHigh = lastBin
     
-    self.selectedbincontents, self.selectedbinxvals, self.selectedbinwidths = spectrum.getSelectedBinInfo(self.rangeLow,self.rangeHigh)
+    self.selectedbincontents, self.selectedbinxvals, self.selectedbinwidths, self.windowLow, self.windowHigh = spectrum.getSelectedBinInfo(self.rangeLow,self.rangeHigh,self.firstBinInWindow,self.lastBinInWindow)
     
     if self.startValFormat == "exp" :
       start_vals = self.getStartVals_exponential()
@@ -226,6 +235,7 @@ class FunctionlessFitter :
     # Return a histogram with bin contents equal to fit results
     outputHist = spectrum.histogram.Clone("fitResult")
     outputHist.Reset()
+    outputHist.SetDirectory(0)
     index = -1
     for bin in range(self.rangeLow,self.rangeHigh+1) :
       index = index+1
@@ -243,8 +253,8 @@ class FunctionlessFitter :
     answer = 0
     for index in range(len(obs)) :
 
-      #if self.excludeWindow and index > self.firstBinToExclude and index < self.lastBinToExclude :
-      #  continue
+      if self.excludeWindow and index > self.windowLow-1 and index < self.windowHigh+1 :
+        continue
 
       data = int(obs[index])
       bkg = exp[index]*self.selectedbinwidths[index]
@@ -269,7 +279,7 @@ class FunctionlessFitter :
     sum = 0
     for index in range(len(obs)) :
 
-      if self.excludeWindow and index > self.firstBinToExclude and index < self.lastBinToExclude :
+      if self.excludeWindow and index > self.windowLow-1 and index < self.windowHigh+1 :
         continue
 
       data = int(obs[index])

@@ -43,15 +43,21 @@ class WrappedHist() :
       else :
         raise Exception( "Unrecognized bin center definition!" )
 
-  def getSelectedBinInfo(self,rangeLow,rangeHigh) :
+  def getSelectedBinInfo(self,rangeLow,rangeHigh,windowLow=-1,windowHigh=-1) :
     selectedbincontents = []
     selectedbinxvals = []
     selectedbinwidths = []
+    indexLow = -1
+    indexHigh = -1
     for bin in range(rangeLow, rangeHigh+1) :
       selectedbincontents.append(self.histogram.GetBinContent(bin))
       selectedbinxvals.append(self.binxvals[bin])
       selectedbinwidths.append(self.histogram.GetBinWidth(bin))
-    return selectedbincontents,selectedbinxvals,selectedbinwidths
+      if bin == windowLow :
+        indexLow = len(selectedbincontents)-1
+      if bin == windowHigh :
+        indexHigh = len(selectedbincontents)-1
+    return selectedbincontents,selectedbinxvals,selectedbinwidths,indexLow,indexHigh
 
   def poissonFluctuateBinByBin(self) :
 
@@ -65,10 +71,10 @@ class WrappedHist() :
       # Protect against future floating point errors
       if (numpy.isclose(weight,1.0)) :
         pseudoHist.SetBinContent(bin,pseudo)
-        pseudoHist.SetBinError(bin,sqrt(pseudo))
+        pseudoHist.SetBinError(bin,numpy.sqrt(pseudo))
       else :
         pseudoHist.SetBinContent(bin,pseudo*weight)
-        pseudoHist.SetBinError(bin,sqrt(pseudo)*weight)
+        pseudoHist.SetBinError(bin,numpy.sqrt(pseudo)*weight)
 
     return pseudoHist
 

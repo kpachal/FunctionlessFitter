@@ -1,23 +1,67 @@
 import ROOT
 import StatisticalTest
+import numpy
+from MathFunctions import poissonPVal, poissonConvGammaPVal
+import HistWrapper
 
-class BumpHunter(StatisticalTest) :
+class BumpHunter(StatisticalTest.StatisticalTest) :
 
   def __init__(self) :
+    StatisticalTest.StatisticalTest.__init__(self)
     self.allowDeficit = False
     self.useSidebands = False
-    self.minBinsInBump = 1
+    self.minBinsInBump = 2
     self.maxBinsInBump = 1e5
     self.nBinsInSideband = 1
     self.doErr = False
-    self.lowEdge = 0.0
-    self.highEdge = 0.0
-    self.lowEdgesAllBumps = []
-    self.highEdgesAllBumps = []
-    self.probAllBumps = []
+    self.tomography = None
+    self.excludeWindow = False
+    self.firstBinToExclude = -1
+    self.lastBinToExclude = -1
 
   def doTest(self, dataHist, bkgHist, firstBinToUse, lastBinToUse) :
 
+    dataCore = dataHist.histogram
+    bkgCore = bkgHist.histogram
+  
+    assert dataCore.GetNbinsX() == bkgCore.GetNbinsX()
+  
+    # Find first and last bins with data
+    # If reasonable, overwrite with user's choice
+    firstBin = dataHist.firstBinWithData
+    lastBin = dataHist.lastBinWithData
+    if firstBinToUse>0 and firstBinToUse > firstBin and firstBinToUse < lastBin : firstBin = firstBinToUse
+    if lastBinToUse > firstBinToUse and lastBinToUse>0 and lastBinToUse > firstBin and lastBinToUse < lastBin :
+      lastBin = lastBinToUse
+      
+    regionsDef = []
+    if self.excludeWindow :
+      regionsDef.append([firstBin,self.firstBinToExclude-1])
+      regionsDef.append([self.lastBinToExclude+1,lastBin])
+    else :
+      regionsDef.append([firstBin,lastBin])
+
+    self.mostInterestingDict = {"binlow" : 0, "binhigh" : 0, "prob" : 1.0}
+
+    for region in regionsDef :
+      
+      nBins = region[1] - region[0] + 1
+      minWidth = max(self.minBinsInBump,1)
+      maxWidth = min(self.maxBinsInBump,int(nBins/2.0))
+
+      self.doCalculationCore(dataCore,bkgCore,minWidth,maxWidth,region[0],region[1])
+      
+    self.tomography = ROOT.TGraphErrors()
+    index = -1
+    for windowDict in self.bumpInfoList :
+      index = index+1
+      self.tomography.SetPoint(index,(windowDict["binlow"]+windowDict["binhigh"])/2.0,windowDict["prob"])
+      self.tomography.SetPointError(index,(windowDict["binhigh"]-windowDict["binlow"])/2.0,0)
+    
+    if self.mostInterestingDict["prob"] == 0 :
+      self.findBumpInCaseOfIncalculable(dataCore,bkgCore,firstBin,lastBin)
+
+    return -numpy.log(self.mostInterestingDict["prob"])
 
   def doCalculationCore(self, dataHist, bkgHist, minWidth, maxWidth, firstBin, lastBin) :
 
@@ -48,7 +92,7 @@ class BumpHunter(StatisticalTest) :
         sidebandLeft = windowLeft - sidebandWidth
         sidebandRight = windowRight + sidebandWidth
 
-        data, dataErr, bkg, bkgErr = getEffectiveBandContentsWithError(dataHist, bkgHist, windowLeft, windowRight)
+        data, dataErr, bkg, bkgErr = self.getEffectiveBandContentsWithError(dataHist, bkgHist, windowLeft, windowRight)
         
         # Don't care about deficits unless otherwise specified
         if not self.allowDeficit and data < bkg :
@@ -64,8 +108,8 @@ class BumpHunter(StatisticalTest) :
         # If we have a big discrepancy in the sidebands then we do not
         # keep considering this window.
         if self.useSidebands :
-          LSdata, LSdataErr, LSbkg, LSbkgErr = getEffectiveBandContentsWithError(dataHist, bkgHist, sidebandLeft, windowLeft - 1)
-          RSdata, RSdataErr, RSbkg, RSbkgErr = getEffectiveBandContentsWithError(dataHist, bkgHist, windowRight + 1, sidebandRight)
+          LSdata, LSdataErr, LSbkg, LSbkgErr = self.getEffectiveBandContentsWithError(dataHist, bkgHist, sidebandLeft, windowLeft - 1)
+          RSdata, RSdataErr, RSbkg, RSbkgErr = self.getEffectiveBandContentsWithError(dataHist, bkgHist, windowRight + 1, sidebandRight)
           if self.doErr :
             probLeftSideband = poissonConvGammaPVal(LSdata, LSbkg, LSbkgErr)
             probRightSideband = poissonConvGammaPVal(RSdata, RSbkg, RSbkgErr)
@@ -79,12 +123,16 @@ class BumpHunter(StatisticalTest) :
         # Save information on this window for the tomography plot
         windowDict = {"binlow" : windowLeft, "binhigh" : windowRight, "prob" : probability}
         self.bumpInfoList.append(windowDict)
-        if probability < mostInterestingDict["prob"] :
+        if probability < self.mostInterestingDict["prob"] :
           self.mostInterestingDict = windowDict
 
 
   def getEffectiveBandContentsWithError(self,data, bkg, firstBin, lastBin) :
   
+#    print "With firstBin, lastBin =",firstBin,lastBin
+#    data.Print("all")
+#    bkg.Print("all")
+
     dataInt = dataErr = bkgInt = bkgErr = 0.0
     for bin in range(firstBin, lastBin+1) :
       dataInt = dataInt + data.GetBinContent(bin)
@@ -97,12 +145,12 @@ class BumpHunter(StatisticalTest) :
   def findBumpInCaseOfIncalculable(self, data, bkg, firstBin, lastBin) :
 
     lastWasInf = False
-    allConsecutive = True
+    allInfsConsecutive = True
     singlebinsinf = []
     for bin in range(firstBin, lastBin+1) :
       D = data.GetBinContent(bin)
       B = bkg.GetBinContent(bin)
-      thisbinpval = poissonPval(D,B)
+      thisbinpval = poissonPVal(D,B)
       if thisbinpval==0 and D>B :
         if len(singlebinsinf)>0 and lastWasInf==False :
           allInfsConsecutive = False
@@ -117,4 +165,5 @@ class BumpHunter(StatisticalTest) :
       self.mostInterestingDict = windowDict
 
   def getFurtherInformation(self) :
-    return self.bumpLowEdge, self.bumpHighEdge
+    return self.mostInterestingDict["binlow"], self.mostInterestingDict["binhigh"], self.tomography
+

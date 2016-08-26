@@ -1,6 +1,6 @@
 import ROOT
 
-class StatisticalTest :
+class StatisticalTest(object) :
 
   def __init__(self) :
     self.excludeWindow = False
