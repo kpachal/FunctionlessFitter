@@ -158,11 +158,11 @@ class RunSearchPhase :
     myLogLTest.excludeWindow = False
 
     # Bump hunt fitted data
-#    finalPEDict = PEMaker.getPseudoexperiments(self.theHistogram,wResult,[bumpHunter,mychi2Test,myLogLTest],self.firstBinFit,self.lastBinFit,nPEs=self.nPseudoExpBH)
-#    # Collect statistics
-#    BHDict = finalPEDict[0]
-#    Chi2Dict = finalPEDict[1]
-#    LogLDict = finalPEDict[2]
+    finalPEDict = PEMaker.getPseudoexperiments(self.theHistogram,wResult,[bumpHunter,mychi2Test,myLogLTest],self.firstBinFit,self.lastBinFit,nPEs=self.nPseudoExpBH)
+    # Collect statistics
+    BHDict = finalPEDict[0]
+    Chi2Dict = finalPEDict[1]
+    LogLDict = finalPEDict[2]
 
     # Get the residual of the hist
     residual = getResidual(basichist,final_result,self.firstBinFit,self.lastBinFit)
@@ -177,8 +177,8 @@ class RunSearchPhase :
     for bin in range(self.firstBinFit, self.lastBinFit+1) :
       residualBins.append(residual.GetBinContent(bin))
     resDistHist = makeHistFromVector(residualBins)
-    resDistHist.Fit("gaus")
-    fittedGauss = ROOT.TF1(resDistHist.GetFunction("gaus"))
+    resDistHist.Fit("gaus","0")
+    fittedGauss = resDistHist.GetFunction("gaus")
     gausmean = fittedGauss.GetParameter(1)
     gauswidth = fittedGauss.GetParameter(2)
     histmean = resDistHist.GetMean()
@@ -201,27 +201,27 @@ class RunSearchPhase :
     basichist.Write("basicData")
     final_result.Write("basicBkg")
     residual.Write("residual")
-    #resDistHist.Write("residualDistribution")
-    #relativeDiffHist.Write("relativeDiffHist")
+    resDistHist.Write("residualDistribution")
+    relativeDiffHist.Write("relativeDiffHist")
     #sigOfDiffHist.Write("sigOfDiffHist")
-    
-#    statPValErr = ROOT.TVectorD(4)
-#    BHDict["statHist"].Write("bumpHunterStatHist")
-#    statPValErr[0] = BHDict["pValue"]
-#    statPValErr[1] = BHDict["stat"]
-#    statPValErr[2] = BHDict["furtherInformation"][0]
-#    statPValErr[3] = BHDict["furtherInformation"][1]
-#    statPValErr.Write("bumpHunterPValStat")
-#    BHDict["furtherInformation"][2].Write("bumpHunterTomography")
-#    statPValErr = ROOT.TVectorD(2)
-#    Chi2Dict["statHist"].Write("chi2StatHist")
-#    statPValErr[0] = Chi2Dict["pValue"]
-#    statPValErr[1] = Chi2Dict["stat"]
-#    statPValErr.Write("chi2PValStat")
-#    LogLDict["statHist"].Write("logLikelihoodStatHist")
-#    statPValErr[0] = LogLDict["pValue"]
-#    statPValErr[1] = LogLDict["stat"]
-#    statPValErr.Write("logLPValStat")
+
+    statPValErr = ROOT.TVectorD(4)
+    BHDict["statHist"].Write("bumpHunterStatHist")
+    statPValErr[0] = BHDict["pValue"]
+    statPValErr[1] = BHDict["stat"]
+    statPValErr[2] = BHDict["furtherInformation"][0]
+    statPValErr[3] = BHDict["furtherInformation"][1]
+    statPValErr.Write("bumpHunterPValStat")
+    BHDict["furtherInformation"][2].Write("bumpHunterTomography")
+    statPValErr = ROOT.TVectorD(2)
+    Chi2Dict["statHist"].Write("chi2StatHist")
+    statPValErr[0] = Chi2Dict["pValue"]
+    statPValErr[1] = Chi2Dict["stat"]
+    statPValErr.Write("chi2PValStat")
+    LogLDict["statHist"].Write("logLikelihoodStatHist")
+    statPValErr[0] = LogLDict["pValue"]
+    statPValErr[1] = LogLDict["stat"]
+    statPValErr.Write("logLPValStat")
 
     firstDerivative.Write("firstDerivative")
     secondDerivative.Write("secondDerivative")

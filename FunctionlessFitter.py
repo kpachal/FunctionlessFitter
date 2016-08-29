@@ -3,7 +3,6 @@ import numpy
 import scipy
 from scipy import optimize
 from scipy import special
-from dill.source import getsource
 from HistWrapper import WrappedHist
 
 class FunctionlessFitter :
