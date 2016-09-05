@@ -167,7 +167,7 @@ class RunSearchPhase :
       self.myFitter.excludeWindow = False
 
     # Fit...
-    final_result = self.myFitter.fit(self.theHistogram,self.firstBinFit,self.lastBinFit)
+    final_result = self.myFitter.fit(self.theHistogram,self.firstBinFit,self.lastBinFit,errType="Bootstrap")
     final_result.SetName("final_result")
     wResult = WrappedHist(final_result)
 

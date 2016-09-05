@@ -16,6 +16,7 @@ class FunctionlessFitter :
     self.firstBinInWindow = -1
     self.lastBinInWindow = -1
     self.userStartVals = []
+    self.nPEs = 20
     
     # Currently supported: "exp", "flat", "linear"
     self.startValFormat = "exp"
@@ -196,7 +197,7 @@ class FunctionlessFitter :
 
     return constraints
 
-  def fit(self,spectrum,firstBin=-1,lastBin=-1) :
+  def fit(self,spectrum,firstBin=-1,lastBin=-1, errType = "None") :
 
     if firstBin < 0 or firstBin > spectrum.histogram.GetNbinsX() :
       self.rangeLow = spectrum.firstBinWithData
@@ -223,19 +224,19 @@ class FunctionlessFitter :
     else :
       raise ValueError("Requested start value format is unrecognized!")
 
-    myBounds = self.boundPositive()
+    self.myBounds = self.boundPositive()
     
     # Calculate values to use for constraints: saves us doing it later
     orders = self.derivativeConstraints.keys()
     self.computeConstraints(max(orders))
-    myConstraints = []
+    self.myConstraints = []
     for order in orders :
       slope = self.derivativeConstraints[order]
-      myConstraints = myConstraints + self.getDerivativeConstraints(order,slope)
+      self.myConstraints = self.myConstraints + self.getDerivativeConstraints(order,slope)
 
     print "Beginning fit to vals",self.selectedbincontents
     print "number of start values, number of bin contents are:",len(start_vals),len(self.selectedbincontents)
-    status = scipy.optimize.minimize(self.function, start_vals, method='SLSQP', jac=self.function_der, bounds=myBounds, constraints=myConstraints, options={'disp': True, 'maxiter':100000, })
+    status = scipy.optimize.minimize(self.function, start_vals, method='SLSQP', jac=self.function_der, bounds=self.myBounds, constraints=self.myConstraints, options={'disp': True, 'maxiter':100000, })
     print status
 
     self.result = status.x
@@ -248,6 +249,36 @@ class FunctionlessFitter :
     for bin in range(self.rangeLow,self.rangeHigh+1) :
       index = index+1
       outputHist.SetBinContent(bin,status.x[index]*self.selectedbinwidths[index])
+
+    # If we want uncertainties on this, handle it now.
+    if errType == "None" :
+      print "Fit returned without uncertainties."
+    elif errType == "Hessian" :
+      print "Doing covariance-based errors!"
+      hessMatrix = self.hessianLogL(self.selectedbincontents, self.result)
+      covMatrix = self.covLogL(self.selectedbincontents,self.result)
+      # Is it positive definite?
+      # Raises exception if not.
+      decomp = numpy.linalg.cholesky(covMatrix)
+      # Made it here: we have a positive definite covariance matrix.
+      # Uncertainy for parameter i is just sqrt(m[ii]).
+      for bin in range(0,outputHist.GetNbinsX()) :
+        error = math.sqrt(covMatrix[bin][bin])
+        outputHist.SetBinError(bin+1,error)
+    elif errType == "Bootstrap" :
+      # Now we do a number of pseudoexperiments and take the variance of the parameter values
+      # as the uncertainty in each bin.
+      variances = self.getManyPEErrors(outputHist)
+      for bin in range(1,outputHist.GetNbinsX()+1) :
+        if bin < self.rangeLow or bin > self.rangeHigh :
+          outputHist.SetBinError(bin,0.0)
+        else :
+          error = variances[bin - self.rangeLow]
+          outputHist.SetBinError(bin,error)
+
+    else :
+      print "Unknown error type specified!"
+      print "Fit result will be returned without uncertainties."
     return outputHist
     
   def computeLogL(self,obs,exp) :
@@ -305,4 +336,94 @@ class FunctionlessFitter :
   def jacobianChi2(self,obs,exp) :
   
     return
+
+  # This will be used for a hacky stand-in for uncertainty calculation
+  # in the case that we do not have time for a boostrap method
+  # (read: all my fit stability studies)
+  def hessianLogL(self,obs,exp) :
+
+    answer = []
+    for index in range(len(obs)) :
+
+      thisrow = []
+      for inIndex in range(len(exp)) :
+
+        if index != inIndex :
+          thisrow.append(0)
+          continue
+
+        data = int(obs[index])
+        bkg = exp[index]*self.selectedbinwidths[index]
+
+        if (self.excludeWindow and inIndex > self.windowLow-1 and inIndex < self.windowHigh+1) or\
+           (data <= 0.0) or (bkg < 0.0) :
+          thisrow.append(0)
+          continue
+
+        else :
+          thisrow.append(-data/(bkg*bkg))
+      
+      answer.append(thisrow)
+
+    return numpy.array(answer)
+
+  # Inverting a diagonal matrix is easy: just inverse of every non-zero element.
+  # Covariance matrix is inverse of negative Hessian.
+  def covLogL(self,obs,exp) :
+
+    answer = []
+    for index in range(len(obs)) :
+
+      thisrow = []
+      for inIndex in range(len(exp)) :
+
+        if index != inIndex :
+          thisrow.append(0)
+          continue
+
+        data = int(obs[index])
+        bkg = exp[index]*self.selectedbinwidths[index]
+
+        if (self.excludeWindow and inIndex > self.windowLow-1 and inIndex < self.windowHigh+1) or\
+           (data <= 0.0) or (bkg < 0.0) :
+          thisrow.append(0)
+          continue
+
+        else :
+          thisrow.append((bkg*bkg)/float(obs[index]))
+      
+      answer.append(thisrow)
+
+    return numpy.array(answer)
+
+  def getManyPEErrors(self,nominalHist) :
+
+    # Only generate this once so the seed keeps
+    # all following ones independent
+    nominalHist = WrappedHist(nominalHist)
+
+    binArrays = []
+    for bin in range(len(self.result)) :
+      binArrays.append([])
+    
+    for PE in range(self.nPEs) :
+
+      thisPE = nominalHist.poissonFluctuateBinByBin()
+      PEWrapper = WrappedHist(thisPE)
+      # Need to reset thing we run on to be contents of thisPE
+      self.selectedbincontents, self.selectedbinxvals, self.selectedbinwidths, self.windowLow, self.windowHigh = PEWrapper.getSelectedBinInfo(self.rangeLow,self.rangeHigh,self.firstBinInWindow,self.lastBinInWindow)
+      thisStatus = scipy.optimize.minimize(self.function, self.result, method='SLSQP', jac=self.function_der, bounds=self.myBounds, constraints=self.myConstraints, options={'disp': True, 'maxiter':100000, })
+      binResults = thisStatus.x
+      index = -1
+      for value in binResults :
+        index = index+1
+        binArrays[index].append(value)
+
+    variances = []
+    for bin in range(len(self.result)) :
+      vec = numpy.array(binArrays[bin])
+      variances.append(numpy.sqrt(numpy.vdot(vec, vec)/vec.size))
+
+    return variances
+
 
