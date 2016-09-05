@@ -15,6 +15,7 @@ class FunctionlessFitter :
     self.jacobianDatabase = {}
     self.firstBinInWindow = -1
     self.lastBinInWindow = -1
+    self.userStartVals = []
     
     # Currently supported: "exp", "flat", "linear"
     self.startValFormat = "exp"
@@ -212,6 +213,13 @@ class FunctionlessFitter :
       start_vals = self.getStartVals_flat()
     elif self.startValFormat == "linear" :
       start_vals = self.getStartVals_linear()
+    elif self.startValFormat == "user" :
+      if len(self.userStartVals) > 0 :
+        start_vals = self.userStartVals
+      else :
+        print "No start values specified by user!"
+        print "Using default flat values."
+        start_vals = self.getStartVals_flat()
     else :
       raise ValueError("Requested start value format is unrecognized!")
 
@@ -226,6 +234,7 @@ class FunctionlessFitter :
       myConstraints = myConstraints + self.getDerivativeConstraints(order,slope)
 
     print "Beginning fit to vals",self.selectedbincontents
+    print "number of start values, number of bin contents are:",len(start_vals),len(self.selectedbincontents)
     status = scipy.optimize.minimize(self.function, start_vals, method='SLSQP', jac=self.function_der, bounds=myBounds, constraints=myConstraints, options={'disp': True, 'maxiter':100000, })
     print status
 
@@ -275,10 +284,10 @@ class FunctionlessFitter :
   def jacobianLogL(self,obs,exp) :
 
     answer = []
-    sum = 0
     for index in range(len(obs)) :
 
       if self.excludeWindow and index > self.windowLow-1 and index < self.windowHigh+1 :
+        answer.append(0.0)
         continue
 
       data = int(obs[index])
@@ -289,7 +298,6 @@ class FunctionlessFitter :
         thisterm = 1.0
       else :
         thisterm = 1.0 - (float(data)/float(bkg))
-      sum = sum+thisterm
       answer.append(thisterm)
 
     return numpy.array(answer)

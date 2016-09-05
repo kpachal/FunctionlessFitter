@@ -159,8 +159,8 @@ class BumpHunter(StatisticalTest.StatisticalTest) :
       else : lastWasInf = False
   
     if len(singlebinsinf) > 0 and allInfsConsecutive :
-      windowDict = {"binlow" : data.GetBinLowEdge(singlebinsinf[0]),\
-                    "binhigh" : data.GetBinLowEdge(singlebinsinf[-1]+1),
+      windowDict = {"binlow" : singlebinsinf[0],\
+                    "binhigh" : singlebinsinf[-1],
                     "prob" : 0.0}
       self.mostInterestingDict = windowDict
 

@@ -86,10 +86,18 @@ class RunSearchPhase :
     firstBinInWindow = prelimPEDict[0]["furtherInformation"][0]
     lastBinInWindow = prelimPEDict[0]["furtherInformation"][1]
     
+    print "Found bumphunter p-value", BHPVal,"and excludewindow is",self.permitWindow
+    
     # Exclude window if necessary, and continue expanding it until satisfied
     while BHPVal < 0.05 and self.permitWindow :
 
       bumpFound = True
+      print "Found bump; excluding window!"
+      print "At this point firstBinInWindow and lastBinInWindow are",firstBinInWindow,lastBinInWindow,"while tests run between bins",self.firstBinFit,"and",self.lastBinFit
+
+      # Set start values to use last solution so it's more stable
+      self.myFitter.startValFormat = "user"
+      self.myFitter.userStartVals = self.myFitter.result
 
       # We don't want to use windows that touch the edge of the
       # fit range. If that happens take the second biggest discrepancy
@@ -106,16 +114,18 @@ class RunSearchPhase :
         lastBinInWindow = sortedStats[1]["binhigh"]
 
       # If window is larger than half the spectrum, we don't want it getting larger
-      if (lastBinInWindow - firstBinInWindow+1) > (lastBin - firstBin+1)/2.0 : break
+      if (lastBinInWindow - firstBinInWindow+1) > (self.lastBinFit - self.firstBinFit+1)/2.0 : break
       
       # Now re-fit excluding this window.
       self.myFitter.excludeWindow = True
       self.myFitter.firstBinInWindow = firstBinInWindow
       self.myFitter.lastBinInWindow = lastBinInWindow
       
-      intermediate_result = self.myFitter.fit(self.theHistogram,self.firstBinFit,self.lastBinFit)
-      intermediate_result.SetName("intermediate_result")
-      wTempResult = WrappedHist(intermediate_result)
+      print "About to do fit"
+      prelim_result = self.myFitter.fit(self.theHistogram,self.firstBinFit,self.lastBinFit)
+      prelim_result.SetName("intermediate_result")
+      print "After fit"
+      wTempResult = WrappedHist(prelim_result)
 
       # Check the result, after excluding matching window from BH
       bumpHunter.excludeWindow = True
@@ -127,6 +137,7 @@ class RunSearchPhase :
       # If it is good enough this will be the (nearly) final window location.
       # Otherwise, adjust window edges and prepare for next iteration.
       BHPVal = prelimPEDict[0]["pValue"]
+      print "Window and p-val are now [",firstBinInWindow,lastBinInWindow,"] and",BHPVal,"\n"
       if BHPVal < 0.05 :
         firstBinInWindow = prelimPEDict[0]["furtherInformation"][0]
         lastBinInWindow = prelimPEDict[0]["furtherInformation"][1]
