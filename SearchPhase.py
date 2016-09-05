@@ -139,8 +139,18 @@ class RunSearchPhase :
       BHPVal = prelimPEDict[0]["pValue"]
       print "Window and p-val are now [",firstBinInWindow,lastBinInWindow,"] and",BHPVal,"\n"
       if BHPVal < 0.05 :
-        firstBinInWindow = prelimPEDict[0]["furtherInformation"][0]
-        lastBinInWindow = prelimPEDict[0]["furtherInformation"][1]
+      
+        # Returning this to old version. just replacing with the new window is silly.
+        newFirstBin = prelimPEDict[0]["furtherInformation"][0]
+        newLastBin = prelimPEDict[0]["furtherInformation"][1]
+        if newLastBin == firstBinInWindow - 1 :
+          firstBinInWindow = firstBinInWindow - 1
+        elif newFirstBin == lastBinInWindow + 1 :
+          lastBinInWindow = lastBinInWindow + 1
+        else :
+          firstBinInWindow = firstBinInWindow - 1
+          lastBinInWindow = lastBinInWindow + 1
+            
       # If this is the final window location we want additionally to add
       # one more bin to the left hand side of the exclusion window
       else :
