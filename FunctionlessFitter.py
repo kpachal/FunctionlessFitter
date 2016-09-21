@@ -16,7 +16,13 @@ class FunctionlessFitter :
     self.firstBinInWindow = -1
     self.lastBinInWindow = -1
     self.userStartVals = []
-    self.nPEs = 20
+    self.nPEs = 10
+    
+    # Fitter internal parameters
+    
+    # Options: "SLSQP","COBYLA"
+    #self.minAlg = "COBYLA"
+    self.minAlg = "SLSQP"
     
     # Currently supported: "exp", "flat", "linear"
     self.startValFormat = "exp"
@@ -26,6 +32,28 @@ class FunctionlessFitter :
     # mapped values are sign of slope of derivative
     self.derivativeConstraints = {0:-1, 1:1, 2:-1, 3:1}
   
+  def getOptionsDict(self,algorithm) :
+    if algorithm == "SLSQP" :
+      # 'disp': set verbosity
+      # 'maxiter': keep high for diagnostics
+      # 'ftol': stopping precision
+      # 'eps': step size for approximating the Jacobean (we don't have
+      #        to do this because we know our Jacobean)
+      options={'disp': True, 'maxiter':100000, 'ftol':1e-10}
+    elif algorithm == "COBYLA" :
+      # 'disp': set verbosity
+      # 'maxiter': keep high for diagnostics
+      # 'rhobeg': how far can we move from the start parameters?
+      #            needs to be quite high because of large numbers of
+      #            events at low mass. Adjust up if convergence failing
+      # 'tol': tolerance of final result. By default none specified
+      # 'catol': tolerance of constraint violations. By default 0.0002
+      options={'disp': True, 'maxiter':100000, 'rhobeg':1e6, 'tol':1e-5, 'catol':1e-5}
+    else :
+      raise ValueError("Unrecognized minimization algorithm!\nPlease use one of 'SLSQP','COBYLA'")
+
+    return options
+
   def function(self,pars) :
 
     if self.mode == "LogL" :
@@ -230,15 +258,43 @@ class FunctionlessFitter :
     orders = self.derivativeConstraints.keys()
     self.computeConstraints(max(orders))
     self.myConstraints = []
+    print orders
+    
+#   Old method: attempt to do all in a single fit
     for order in orders :
       slope = self.derivativeConstraints[order]
       self.myConstraints = self.myConstraints + self.getDerivativeConstraints(order,slope)
 
-    print "Beginning fit to vals",self.selectedbincontents
-    print "number of start values, number of bin contents are:",len(start_vals),len(self.selectedbincontents)
-    status = scipy.optimize.minimize(self.function, start_vals, method='SLSQP', jac=self.function_der, bounds=self.myBounds, constraints=self.myConstraints, options={'disp': True, 'maxiter':100000, })
+    # Version currently in svn
+    # This is
+    status = scipy.optimize.minimize(self.function, start_vals, method='SLSQP', jac=self.function_der, bounds=self.myBounds, constraints=self.myConstraints, options={'disp': True, 'maxiter':100000})
+    updated_start_vals = status.x
+    # Work on tightening convergence criteria! Test this using ICHEP results
+    options_dict = self.getOptionsDict(self.minAlg)
+    print options_dict
+    status = scipy.optimize.minimize(self.function, updated_start_vals, method=self.minAlg, jac=self.function_der, bounds=self.myBounds, constraints=self.myConstraints, options=options_dict)
     print status
 
+#    updated_start_vals = start_vals
+#    for order in orders :
+#    
+#      print "Beginning study at order",order
+#      slope = self.derivativeConstraints[order]
+#      if order==0 :
+#        self.myConstraints = self.getDerivativeConstraints(order,slope)
+#      else :
+#        self.myConstraints = self.myConstraints + self.getDerivativeConstraints(order,slope)
+#
+#      # Work on tightening convergence criteria! Test this using ICHEP results
+#      options_dict = self.getOptionsDict(self.minAlg)
+#      #if 'catol' in options_dict.keys() and order > 2 :
+#        #options_dict['catol'] = 0.1*(order-2)*options_dict['catol']
+#      #if 'tol' in options_dict.keys() and order > 2 :
+#        #options_dict['tol'] = 0.1*(order-2)*options_dict['tol']
+#      status = scipy.optimize.minimize(self.function, updated_start_vals, method=self.minAlg, jac=self.function_der, bounds=self.myBounds, constraints=self.myConstraints, options=options_dict)
+#      print status
+#      updated_start_vals = status.x
+#
     self.result = status.x
 
     # Return a histogram with bin contents equal to fit results
@@ -400,19 +456,20 @@ class FunctionlessFitter :
 
     # Only generate this once so the seed keeps
     # all following ones independent
-    nominalHist = WrappedHist(nominalHist)
+    nominalHistWrapper = WrappedHist(nominalHist)
 
     binArrays = []
     for bin in range(len(self.result)) :
       binArrays.append([])
-    
+
     for PE in range(self.nPEs) :
 
-      thisPE = nominalHist.poissonFluctuateBinByBin()
+      thisPE = nominalHistWrapper.poissonFluctuateBinByBin()
       PEWrapper = WrappedHist(thisPE)
       # Need to reset thing we run on to be contents of thisPE
       self.selectedbincontents, self.selectedbinxvals, self.selectedbinwidths, self.windowLow, self.windowHigh = PEWrapper.getSelectedBinInfo(self.rangeLow,self.rangeHigh,self.firstBinInWindow,self.lastBinInWindow)
-      thisStatus = scipy.optimize.minimize(self.function, self.result, method='SLSQP', jac=self.function_der, bounds=self.myBounds, constraints=self.myConstraints, options={'disp': True, 'maxiter':100000, })
+      thisStatus = scipy.optimize.minimize(self.function, self.result, method='SLSQP', jac=self.function_der, bounds=self.myBounds, constraints=self.myConstraints, options={'disp': False, 'maxiter':100000, })
+      print thisStatus
       binResults = thisStatus.x
       index = -1
       for value in binResults :

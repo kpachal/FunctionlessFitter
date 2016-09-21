@@ -64,9 +64,21 @@ class RunSearchPhase :
       self.lastBinFit = self.theHistogram.histogram.FindBin(self.maxX)
 
     # Set options in the fitter according to configuration
-    self.myFitter.startValFormat = self.startVals
-    self.myFitter.flatStartVal = 1.0
-    self.myFitter.derivativeConstraints = {0:-1, 1:1, 2:-1, 3:1}
+    if not self.startVals == "fromHist" :
+      self.myFitter.startValFormat = self.startVals
+      self.myFitter.flatStartVal = 1.0
+    else :
+      startVals = []
+      getStartVals = WrappedHist(self.histForStartVals)
+      fullVals, xvals, widths, w1, w2 = getStartVals.getSelectedBinInfo(self.firstBinFit,self.lastBinFit)
+      index = -1
+      for item in fullVals :
+        index = index+1
+        #startVals.append(item)
+        startVals.append(item/widths[index])
+      self.myFitter.startValFormat = "user"
+      self.myFitter.userStartVals = startVals
+    self.myFitter.derivativeConstraints = { 0:-1, 1:1, 2:-1, 3:1} #  4:"PD"
 
     # Fit the histogram
     prelim_result = self.myFitter.fit(self.theHistogram,self.firstBinFit,self.lastBinFit)
@@ -295,6 +307,7 @@ class RunSearchPhase :
     self.startVals = configReader.get(section, "startVals")
     if '"' in self.startVals :
       self.startVals = self.startVals[1:-1]
+    self.histNameForStartVals = configReader.get(section,"histForStartVals")
     section = "General"
     self.nPseudoExpBH = configReader.getint(section, "nPseudoExp")
     self.permitWindow = configReader.getboolean(section, "permitWindow")
@@ -307,6 +320,9 @@ class RunSearchPhase :
     infile = ROOT.TFile.Open(self.inputFileName)
     hist = infile.Get(self.dataHistoName)
     hist.SetDirectory(0)
+    if self.histNameForStartVals :
+      self.histForStartVals = infile.Get(self.histNameForStartVals)
+      self.histForStartVals.SetDirectory(0)
     infile.Close()
     return hist
 
