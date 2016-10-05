@@ -25,9 +25,9 @@ class WrappedHist() :
 #        self.histogram = ROOT.TH1D(self.original.GetName()+"_rebinned",self.original.GetName()+"_rebinned",(len(newbins) - 1), numpy.array(newbins))
 #      else :
 #        self.histogram = ROOT.TH1D(self.original.GetName()+"_rebinned",self.original.GetName()+"_rebinned",a.GetNbins(), a.GetXmin()/self.scaleamount, a.GetXmax()/self.scaleamount )
-      for bin in range(self.histogram.GetNbinsX()+2) :
-        self.histogram.SetBinContent(bin,self.original.GetBinContent(bin))
-        self.histogram.SetBinError(bin,self.original.GetBinError(bin))
+#      for bin in range(self.histogram.GetNbinsX()+2) :
+#        self.histogram.SetBinContent(bin,self.original.GetBinContent(bin))
+#        self.histogram.SetBinError(bin,self.original.GetBinError(bin))
 
     self.getHistOutermostBinsWithData()
     self.bincontents = []
