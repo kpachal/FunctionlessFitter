@@ -49,7 +49,9 @@ class RunSearchPhase :
     # Access input file and get histogram to fit
     basichist = self.readFile()
     # Make wrapped version which we will use for many tests
-    self.theHistogram = WrappedHist(basichist)
+    self.theHistogram = WrappedHist(basichist,scaleXAxis=True)#,scaleBy=1)
+    self.minX = self.minX/self.theHistogram.scaleamount
+    self.maxX = self.maxX/self.theHistogram.scaleamount
     
     # Get range for fit
     if self.minX > self.theHistogram.histogram.GetBinLowEdge(self.theHistogram.lastBinWithData+1)\
@@ -69,7 +71,8 @@ class RunSearchPhase :
       self.myFitter.flatStartVal = 1.0
     else :
       startVals = []
-      getStartVals = WrappedHist(self.histForStartVals)
+      self.histForStartVals.SetName("histForStartVals")
+      getStartVals = WrappedHist(self.histForStartVals,scaleXAxis=True,scaleBy=self.theHistogram.scaleamount)
       fullVals, xvals, widths, w1, w2 = getStartVals.getSelectedBinInfo(self.firstBinFit,self.lastBinFit)
       index = -1
       for item in fullVals :
@@ -78,7 +81,7 @@ class RunSearchPhase :
         startVals.append(item/widths[index])
       self.myFitter.startValFormat = "user"
       self.myFitter.userStartVals = startVals
-    self.myFitter.derivativeConstraints = { 0:-1, 1:1, 2:-1, 3:1} #  4:"PD"
+    self.myFitter.derivativeConstraints = { 0:-1, 1:1, 2:-1, 3:1, 4:-1, 5:1, 6:-1, 7:1}
 
     # Fit the histogram
     prelim_result = self.myFitter.fit(self.theHistogram,self.firstBinFit,self.lastBinFit)
@@ -179,7 +182,7 @@ class RunSearchPhase :
       self.myFitter.excludeWindow = False
 
     # Fit...
-    final_result = self.myFitter.fit(self.theHistogram,self.firstBinFit,self.lastBinFit,errType="Bootstrap")
+    final_result = self.myFitter.fit(self.theHistogram,self.firstBinFit,self.lastBinFit)#,errType="Bootstrap")
     final_result.SetName("final_result")
     wResult = WrappedHist(final_result)
 
@@ -315,7 +318,6 @@ class RunSearchPhase :
   def readFile(self) :
   
     # Get a histogram we want to fit
-    print type(self.inputFileName)
     print "Retrieving histogram",self.dataHistoName,"from file",self.inputFileName
     infile = ROOT.TFile.Open(self.inputFileName)
     hist = infile.Get(self.dataHistoName)

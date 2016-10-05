@@ -36,10 +36,20 @@ class FunctionlessFitter :
     if algorithm == "SLSQP" :
       # 'disp': set verbosity
       # 'maxiter': keep high for diagnostics
-      # 'ftol': stopping precision
+      # 'ftol': stopping precision. Default is 1e-6
       # 'eps': step size for approximating the Jacobean (we don't have
       #        to do this because we know our Jacobean)
-      options={'disp': True, 'maxiter':100000, 'ftol':1e-10}
+      options={'disp': True, 'maxiter':10000, 'ftol':1e-9} # 1e-6 is default
+          # Testing in restricted TLA.
+          # Does not converge with: 1e-10.
+          # Does with 1e-9 and constraints up to 3.
+          # Constraints up to 4: failed when precision 1e-9 required. 1e-8: no. 1e-7: no. 1e-6: yes.
+          # Up to 5: worked at 1e-6.
+          # Up to 6: worked at 1e-6 but the residuals were more narrow afterwards, although the function value was larger than for 5
+          # Up to 7: works at 1e-6 but very slowly. width of dist:
+          # Conclusion: default precision works for constraints from 4 through 6. Can go as tight as 1e-9 for constraints in 0-3. 7 and above require loosening beyond the default.
+          # Did that change at all as a result of the re-binning?
+          # deactivate rebinning and try up to 5 at 1e-6:
     elif algorithm == "COBYLA" :
       # 'disp': set verbosity
       # 'maxiter': keep high for diagnostics
@@ -48,7 +58,7 @@ class FunctionlessFitter :
       #            events at low mass. Adjust up if convergence failing
       # 'tol': tolerance of final result. By default none specified
       # 'catol': tolerance of constraint violations. By default 0.0002
-      options={'disp': True, 'maxiter':100000, 'rhobeg':1e6, 'tol':1e-5, 'catol':1e-5}
+      options={'disp': True, 'maxiter':1000, 'rhobeg':1e6, 'tol':1e-5, 'catol':1e-5}
     else :
       raise ValueError("Unrecognized minimization algorithm!\nPlease use one of 'SLSQP','COBYLA'")
 
@@ -237,13 +247,17 @@ class FunctionlessFitter :
     self.selectedbincontents, self.selectedbinxvals, self.selectedbinwidths, self.windowLow, self.windowHigh = spectrum.getSelectedBinInfo(self.rangeLow,self.rangeHigh,self.firstBinInWindow,self.lastBinInWindow)
     
     if self.startValFormat == "exp" :
+      print "Using exponential start values"
       start_vals = self.getStartVals_exponential()
     elif self.startValFormat == "flat" :
+      print "Using flat start values."
       start_vals = self.getStartVals_flat()
     elif self.startValFormat == "linear" :
+      print "Using linear start values"
       start_vals = self.getStartVals_linear()
     elif self.startValFormat == "user" :
       if len(self.userStartVals) > 0 :
+        print "Using user-specified start values."
         start_vals = self.userStartVals
       else :
         print "No start values specified by user!"
@@ -265,13 +279,22 @@ class FunctionlessFitter :
       slope = self.derivativeConstraints[order]
       self.myConstraints = self.myConstraints + self.getDerivativeConstraints(order,slope)
 
+    # Add smoothing routine for user-supplied start values
+    # Use COBYLA with loosened tolerance on parameter constraint obedience
+    # to smooth, for instance, data values so they obey further iterations
+    if self.startValFormat == "user" :
+      print "Beginning input value smoothing"
+      looseOpts = {'disp': True, 'maxiter':1000, 'rhobeg':1e4, 'tol':1e-7, 'catol':1e-2} # 2 and 2 good
+      status = scipy.optimize.minimize(self.function, start_vals, method='COBYLA', constraints=self.myConstraints, options=looseOpts)
+      start_vals = status.x
+
     # Version currently in svn
-    # This is
-    status = scipy.optimize.minimize(self.function, start_vals, method='SLSQP', jac=self.function_der, bounds=self.myBounds, constraints=self.myConstraints, options={'disp': True, 'maxiter':100000})
+    status = scipy.optimize.minimize(self.function, start_vals, method='SLSQP', jac=self.function_der, bounds=self.myBounds, constraints=self.myConstraints, options={'disp': True, 'maxiter':10000})
     updated_start_vals = status.x
     # Work on tightening convergence criteria! Test this using ICHEP results
     options_dict = self.getOptionsDict(self.minAlg)
-    print options_dict
+    print "Beginning robust fit"
+    print self.minAlg,options_dict
     status = scipy.optimize.minimize(self.function, updated_start_vals, method=self.minAlg, jac=self.function_der, bounds=self.myBounds, constraints=self.myConstraints, options=options_dict)
     print status
 
@@ -324,7 +347,8 @@ class FunctionlessFitter :
     elif errType == "Bootstrap" :
       # Now we do a number of pseudoexperiments and take the variance of the parameter values
       # as the uncertainty in each bin.
-      variances = self.getManyPEErrors(outputHist)
+      print "Beginning error bar computation"
+      variances = self.getManyPEErrors(outputHist,options_dict)
       for bin in range(1,outputHist.GetNbinsX()+1) :
         if bin < self.rangeLow or bin > self.rangeHigh :
           outputHist.SetBinError(bin,0.0)
@@ -353,6 +377,7 @@ class FunctionlessFitter :
 
       data = int(obs[index])
       bkg = exp[index]*self.selectedbinwidths[index]
+      #print "\tcompare",data,"to",bkg
       if data < 0.0 or bkg < 0.0 :
         thisterm = -1E10
       elif data == 0.0 :
@@ -361,6 +386,7 @@ class FunctionlessFitter :
         thisterm = data * numpy.log(bkg) - bkg - scipy.special.gammaln(data+1)
       answer = answer - thisterm
     
+    #print answer
     return answer
 
 
@@ -452,7 +478,7 @@ class FunctionlessFitter :
 
     return numpy.array(answer)
 
-  def getManyPEErrors(self,nominalHist) :
+  def getManyPEErrors(self,nominalHist,options_dict) :
 
     # Only generate this once so the seed keeps
     # all following ones independent
@@ -468,7 +494,7 @@ class FunctionlessFitter :
       PEWrapper = WrappedHist(thisPE)
       # Need to reset thing we run on to be contents of thisPE
       self.selectedbincontents, self.selectedbinxvals, self.selectedbinwidths, self.windowLow, self.windowHigh = PEWrapper.getSelectedBinInfo(self.rangeLow,self.rangeHigh,self.firstBinInWindow,self.lastBinInWindow)
-      thisStatus = scipy.optimize.minimize(self.function, self.result, method='SLSQP', jac=self.function_der, bounds=self.myBounds, constraints=self.myConstraints, options={'disp': False, 'maxiter':100000, })
+      thisStatus = scipy.optimize.minimize(self.function, self.result, method=self.minAlg, jac=self.function_der, bounds=self.myBounds, constraints=self.myConstraints, options=options_dict)
       print thisStatus
       binResults = thisStatus.x
       index = -1
