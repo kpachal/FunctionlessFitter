@@ -79,7 +79,6 @@ class WrappedHist() :
       while parVal > 10.0 :
         parVal = parVal/10.0
         scale = scale*10
-        scale = 1.0
       self.scaleFactors.append(scale)
 
       selectedbincontents.append(self.histogram.GetBinContent(bin))

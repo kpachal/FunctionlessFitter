@@ -51,8 +51,6 @@ class FunctionlessFitter :
           # Did that change at all as a result of the re-binning?
           # deactivate rebinning and try up to 5 at 1e-6
           # Use 1e-9 to get satisfying identical results for ICHEP without parameter tricks.
-          # This is where it was til par scaling tests!!
-          # Currently with scaled pars (AND NO JACOBEANS) needs 1e6 to converge.
     elif algorithm == "COBYLA" :
       # 'disp': set verbosity
       # 'maxiter': keep high for diagnostics
@@ -166,11 +164,8 @@ class FunctionlessFitter :
     self.dividedDifferenceDatabase[0] = baseDict
   
     # 0th degree Jacobian matrix
-    baseJac = numpy.identity(len(self.selectedbinxvals))
+    baseJac = numpy.identity(len(self.selectedbinxvals))*self.scaleParsBy
     self.jacobianDatabase[0] = baseJac
-  
-    print "Oth degree:"
-    print self.jacobianDatabase[0]
   
     # higher order derivatives and jacobians
     for order in range(1,degree+1) :
@@ -202,10 +197,7 @@ class FunctionlessFitter :
 
       self.dividedDifferenceDatabase[int(order)] = thisorderdict
       self.jacobianDatabase[int(order)] = numpy.dot(A,self.jacobianDatabase[int(order)-1])
-      
-      print order,"order"
-      print self.jacobianDatabase[int(order)]
-  
+
   def getDerivativeConstraints(self, degree, slope) :
 
     if int(degree) not in self.dividedDifferenceDatabase.keys() :
@@ -294,8 +286,7 @@ class FunctionlessFitter :
       slope = self.derivativeConstraints[order]
       self.myConstraints = self.myConstraints + self.getDerivativeConstraints(order,slope)
 
-    # FOR DEBUGGING
-    #self.myConstraints = []
+    debug = False
 
     # Add smoothing routine for user-supplied start values
     # Use COBYLA with loosened tolerance on parameter constraint obedience
@@ -306,19 +297,28 @@ class FunctionlessFitter :
       print "Beginning input value smoothing"
       looseOpts = {'disp': True, 'maxiter':1000, 'rhobeg':50, 'tol':1e-7, 'catol':1e-2} # 2 and 2 good.
       # rhobeg was 1e4 for non-scaled system but is now lower because of parameter adjustments
-      status = scipy.optimize.minimize(self.function, start_vals, method='COBYLA', constraints=self.myConstraints, options=looseOpts)
+      if debug :
+        status = scipy.optimize.minimize(self.function, start_vals, method='COBYLA', options=looseOpts)
+      else :
+        status = scipy.optimize.minimize(self.function, start_vals, method='COBYLA', constraints=self.myConstraints, options=looseOpts)
       start_vals = status.x
 
     # Version currently in svn
     print "Beginning simple fit"
-    status = scipy.optimize.minimize(self.function, start_vals, method='SLSQP', jac=self.function_der, bounds=self.myBounds, constraints=self.myConstraints, options={'disp': True, 'maxiter':10000})
+    if debug :
+      status = scipy.optimize.minimize(self.function, start_vals, method='SLSQP', jac=self.function_der, bounds=self.myBounds, options={'disp': True, 'maxiter':10000})
+    else :
+      status = scipy.optimize.minimize(self.function, start_vals, method='SLSQP', jac=self.function_der, bounds=self.myBounds, constraints=self.myConstraints, options={'disp': True, 'maxiter':10000})
     #status = scipy.optimize.minimize(self.function, start_vals, method='SLSQP', bounds=self.myBounds, constraints=self.myConstraints, options={'disp': True, 'maxiter':10000})
     updated_start_vals = status.x
     # Work on tightening convergence criteria! Test this using ICHEP results
     options_dict = self.getOptionsDict(self.minAlg)
     print "Beginning robust fit"
     print self.minAlg,options_dict
-    status = scipy.optimize.minimize(self.function, updated_start_vals, method=self.minAlg, jac=self.function_der, bounds=self.myBounds, constraints=self.myConstraints, options=options_dict)
+    if debug :
+      status = scipy.optimize.minimize(self.function, updated_start_vals, method=self.minAlg, jac=self.function_der, bounds=self.myBounds, options=options_dict)
+    else :
+      status = scipy.optimize.minimize(self.function, updated_start_vals, method=self.minAlg, jac=self.function_der, bounds=self.myBounds, constraints=self.myConstraints, options=options_dict)
     print "Final parameter values:"
     print status.x
 
@@ -342,7 +342,7 @@ class FunctionlessFitter :
 #      print status
 #      updated_start_vals = status.x
 #
-    self.result = status.x
+    self.result = numpy.multiply(status.x,self.scaleParsBy)
 
     # Return a histogram with bin contents equal to fit results
     outputHist = spectrum.histogram.Clone("fitResult")
@@ -351,7 +351,7 @@ class FunctionlessFitter :
     index = -1
     for bin in range(self.rangeLow,self.rangeHigh+1) :
       index = index+1
-      outputHist.SetBinContent(bin,status.x[index]*self.selectedbinwidths[index])
+      outputHist.SetBinContent(bin,self.result[index]*self.selectedbinwidths[index])
 
     # If we want uncertainties on this, handle it now.
     if errType == "None" :
