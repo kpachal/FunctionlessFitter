@@ -20,8 +20,8 @@ class RunFitter :
 
     #self.setEOYEValues()
     #self.setTLAValues()
-    #self.setTLAFull()
-    self.setICHEPValues()
+    self.setTLAFull()
+    #self.setICHEPValues()
 
   def setEOYEValues(self) :
 
@@ -37,13 +37,9 @@ class RunFitter :
 
     self.outputFileName = "results/test/outputfile_testStartParamStability_EOYE.root"
 
-    #self.myFitter.derivativeConstraints = {0:-1}
     #self.myFitter.derivativeConstraints = {0:-1, 1:1}
-    #self.myFitter.derivativeConstraints = {0:-1, 1:1, 2:-1}
     self.myFitter.derivativeConstraints = {0:-1, 1:1, 2:-1, 3:1}
-    #self.myFitter.derivativeConstraints = {0:-1, 1:1, 2:-1, 3:1, 4:-1}
 
-    self.myFitter.startValFormat = "flat"
     self.myFitter.flatStartVal = 1.0
 
   def setTLAValues(self) :
@@ -60,7 +56,6 @@ class RunFitter :
 
     self.myFitter.derivativeConstraints = {0:-1, 1:1, 2:-1, 3:1}
 
-    self.myFitter.startValFormat = "flat"
     self.myFitter.flatStartVal = 5E4
     
     self.outputFileName = "results/test/outputfile_testStartParamStability_TLA.root"
@@ -80,7 +75,6 @@ class RunFitter :
 
     self.myFitter.derivativeConstraints = {0:-1, 1:1, 2:-1, 3:1}
 
-    self.myFitter.startValFormat = "flat"
     self.myFitter.flatStartVal = 5E4
     
     self.outputFileName = "results/test/outputfile_testStartParamStability_TLAFull.root"
@@ -107,7 +101,7 @@ class RunFitter :
     wInput = WrappedHist(self.hist,scaleXAxis=True)
 
     # Define various start values.
-    startVals = ["data","dataP5","exp","flat","prelimFit"]
+    startVals = ["data","dataP5","exp","flat","linear","prelimFit"]
     
     # Make a bump hunter
     bumpHunter = BumpHunter()
@@ -142,7 +136,7 @@ class RunFitter :
     # Loop over start values.
     for valType in startVals :
     
-      if valType == "exp" or valType == "flat" :
+      if valType == "exp" or valType == "flat" or valType == "linear" :
         self.myFitter.startValFormat = valType
       elif "data" in valType :
         self.myFitter.startValFormat = "user"

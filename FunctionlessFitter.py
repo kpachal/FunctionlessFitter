@@ -55,8 +55,9 @@ class FunctionlessFitter :
       # 'disp': set verbosity
       # 'maxiter': keep high for diagnostics
       # 'rhobeg': how far can we move from the start parameters?
-      #            needs to be quite high because of large numbers of
-      #            events at low mass. Adjust up if convergence failing
+      #           If you are using start parameters very far from
+      #           the scale of the final out come (e.g. linear at 1)
+      #           this needs to be set very high to allow them to change sufficiently
       # 'tol': tolerance of final result. By default none specified
       # 'catol': tolerance of constraint violations. By default 0.0002
       options={'disp': True, 'maxiter':1000, 'rhobeg':1e6, 'tol':1e-5, 'catol':1e-5}
@@ -94,7 +95,7 @@ class FunctionlessFitter :
   
     start_vals = []
     for bin in range(len(self.selectedbincontents)) :
-      start_vals.append(self.flatStartVal/self.scaleParsBy[bin])
+      start_vals.append(self.flatStartVal/(self.scaleParsBy[bin]*self.selectedbinxvals[bin]))
     return start_vals
 
   def getStartVals_linear(self) :
@@ -106,8 +107,8 @@ class FunctionlessFitter :
     slope = (self.selectedbincontents[-1] - self.selectedbincontents[0])/run
     start_vals = []
     for bin in range(len(self.selectedbincontents)) :
-      val = self.selectedbincontents[0] + slope*((self.selectedbinxvals[bin]-self.selectedbinxvals[0])/run)
-      start_vals.append(val/self.scaleParsBy[bin])
+      val = self.selectedbincontents[0] + slope*(self.selectedbinxvals[bin]-self.selectedbinxvals[0])
+      start_vals.append(val/(self.scaleParsBy[bin]*self.selectedbinxvals[bin]))
     return start_vals
     
   def getStartVals_exponential(self) :
@@ -145,7 +146,7 @@ class FunctionlessFitter :
     for bin in range(len(self.selectedbincontents)) :
       x = self.selectedbinxvals[bin]
       y = y2*numpy.exp(b*(x - x2))
-      start_vals.append(y/self.scaleParsBy[bin])
+      start_vals.append(y/(self.scaleParsBy[bin]*self.selectedbinxvals[bin]))
     return start_vals
 
 
@@ -291,7 +292,7 @@ class FunctionlessFitter :
     # Add smoothing routine for user-supplied start values
     # Use COBYLA with loosened tolerance on parameter constraint obedience
     # to smooth, for instance, data values so they obey further iterations
-    print "Starting from:"
+    print "So we are starting from:"
     print start_vals
     if self.startValFormat == "user" :
       print "Beginning input value smoothing"
