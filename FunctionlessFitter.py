@@ -294,7 +294,7 @@ class FunctionlessFitter :
     # to smooth, for instance, data values so they obey further iterations
     print "So we are starting from:"
     print start_vals
-    if self.startValFormat == "user" :
+    if self.startValFormat == "user" or self.startValFormat == "flat":
       print "Beginning input value smoothing"
       looseOpts = {'disp': True, 'maxiter':1000, 'rhobeg':50, 'tol':1e-7, 'catol':1e-2} # 2 and 2 good.
       # rhobeg was 1e4 for non-scaled system but is now lower because of parameter adjustments
