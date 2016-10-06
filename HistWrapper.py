@@ -72,7 +72,16 @@ class WrappedHist() :
     selectedbinwidths = []
     indexLow = -1
     indexHigh = -1
+    self.scaleFactors = []
     for bin in range(rangeLow, rangeHigh+1) :
+      parVal = self.histogram.GetBinContent(bin)/self.histogram.GetBinWidth(bin)
+      scale = 1.0
+      while parVal > 10.0 :
+        parVal = parVal/10.0
+        scale = scale*10
+        scale = 1.0
+      self.scaleFactors.append(scale)
+
       selectedbincontents.append(self.histogram.GetBinContent(bin))
       selectedbinxvals.append(self.binxvals[bin])
       selectedbinwidths.append(self.histogram.GetBinWidth(bin))

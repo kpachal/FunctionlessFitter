@@ -20,8 +20,8 @@ class RunFitter :
 
     #self.setEOYEValues()
     #self.setTLAValues()
-    self.setTLAFull()
-    #self.setICHEPValues()
+    #self.setTLAFull()
+    self.setICHEPValues()
 
   def setEOYEValues(self) :
 
@@ -98,7 +98,7 @@ class RunFitter :
     self.binHigh = -1
 
     self.myFitter.derivativeConstraints = {0:-1, 1:1, 2:-1, 3:1}
-    #self.myFitter.derivativeConstraints = {0:-1, 1:1, 2:-1, 3:1, 4:-1}
+    #self.myFitter.derivativeConstraints = {0:-1, 1:1}
 
     self.outputFileName = "results/test/outputfile_testStartParamStability_ICHEP.root"
   

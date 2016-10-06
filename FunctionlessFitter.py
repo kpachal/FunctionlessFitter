@@ -49,7 +49,10 @@ class FunctionlessFitter :
           # Up to 7: works at 1e-6 but very slowly. width of dist:
           # Conclusion: default precision works for constraints from 4 through 6. Can go as tight as 1e-9 for constraints in 0-3. 7 and above require loosening beyond the default.
           # Did that change at all as a result of the re-binning?
-          # deactivate rebinning and try up to 5 at 1e-6:
+          # deactivate rebinning and try up to 5 at 1e-6
+          # Use 1e-9 to get satisfying identical results for ICHEP without parameter tricks.
+          # This is where it was til par scaling tests!!
+          # Currently with scaled pars (AND NO JACOBEANS) needs 1e6 to converge.
     elif algorithm == "COBYLA" :
       # 'disp': set verbosity
       # 'maxiter': keep high for diagnostics
@@ -93,7 +96,7 @@ class FunctionlessFitter :
   
     start_vals = []
     for bin in range(len(self.selectedbincontents)) :
-      start_vals.append(self.flatStartVal)
+      start_vals.append(self.flatStartVal/self.scaleParsBy[bin])
     return start_vals
 
   def getStartVals_linear(self) :
@@ -106,7 +109,7 @@ class FunctionlessFitter :
     start_vals = []
     for bin in range(len(self.selectedbincontents)) :
       val = self.selectedbincontents[0] + slope*((self.selectedbinxvals[bin]-self.selectedbinxvals[0])/run)
-      start_vals.append(val)
+      start_vals.append(val/self.scaleParsBy[bin])
     return start_vals
     
   def getStartVals_exponential(self) :
@@ -144,7 +147,7 @@ class FunctionlessFitter :
     for bin in range(len(self.selectedbincontents)) :
       x = self.selectedbinxvals[bin]
       y = y2*numpy.exp(b*(x - x2))
-      start_vals.append(y)
+      start_vals.append(y/self.scaleParsBy[bin])
     return start_vals
 
 
@@ -159,12 +162,15 @@ class FunctionlessFitter :
     # 0th degree derivatives
     baseDict = {}
     for bin in range(len(self.selectedbinxvals)) :
-      baseDict[bin] = "pars[{0}]".format(bin)
+      baseDict[bin] = "pars[{0}]*{1}".format(bin,self.scaleParsBy[bin])
     self.dividedDifferenceDatabase[0] = baseDict
   
     # 0th degree Jacobian matrix
     baseJac = numpy.identity(len(self.selectedbinxvals))
     self.jacobianDatabase[0] = baseJac
+  
+    print "Oth degree:"
+    print self.jacobianDatabase[0]
   
     # higher order derivatives and jacobians
     for order in range(1,degree+1) :
@@ -196,7 +202,9 @@ class FunctionlessFitter :
 
       self.dividedDifferenceDatabase[int(order)] = thisorderdict
       self.jacobianDatabase[int(order)] = numpy.dot(A,self.jacobianDatabase[int(order)-1])
-
+      
+      print order,"order"
+      print self.jacobianDatabase[int(order)]
   
   def getDerivativeConstraints(self, degree, slope) :
 
@@ -245,6 +253,8 @@ class FunctionlessFitter :
     else : self.rangeHigh = lastBin
     
     self.selectedbincontents, self.selectedbinxvals, self.selectedbinwidths, self.windowLow, self.windowHigh = spectrum.getSelectedBinInfo(self.rangeLow,self.rangeHigh,self.firstBinInWindow,self.lastBinInWindow)
+    self.scaleParsBy = spectrum.scaleFactors
+    print self.scaleParsBy
     
     if self.startValFormat == "exp" :
       print "Using exponential start values"
@@ -258,7 +268,12 @@ class FunctionlessFitter :
     elif self.startValFormat == "user" :
       if len(self.userStartVals) > 0 :
         print "Using user-specified start values."
-        start_vals = self.userStartVals
+        temp_vals = tuple(self.userStartVals)
+        start_vals = []
+        index = -1
+        for v in temp_vals :
+          index = index+1
+          start_vals.append(v/self.scaleParsBy[index])
       else :
         print "No start values specified by user!"
         print "Using default flat values."
@@ -279,24 +294,33 @@ class FunctionlessFitter :
       slope = self.derivativeConstraints[order]
       self.myConstraints = self.myConstraints + self.getDerivativeConstraints(order,slope)
 
+    # FOR DEBUGGING
+    #self.myConstraints = []
+
     # Add smoothing routine for user-supplied start values
     # Use COBYLA with loosened tolerance on parameter constraint obedience
     # to smooth, for instance, data values so they obey further iterations
+    print "Starting from:"
+    print start_vals
     if self.startValFormat == "user" :
       print "Beginning input value smoothing"
-      looseOpts = {'disp': True, 'maxiter':1000, 'rhobeg':1e4, 'tol':1e-7, 'catol':1e-2} # 2 and 2 good
+      looseOpts = {'disp': True, 'maxiter':1000, 'rhobeg':50, 'tol':1e-7, 'catol':1e-2} # 2 and 2 good.
+      # rhobeg was 1e4 for non-scaled system but is now lower because of parameter adjustments
       status = scipy.optimize.minimize(self.function, start_vals, method='COBYLA', constraints=self.myConstraints, options=looseOpts)
       start_vals = status.x
 
     # Version currently in svn
+    print "Beginning simple fit"
     status = scipy.optimize.minimize(self.function, start_vals, method='SLSQP', jac=self.function_der, bounds=self.myBounds, constraints=self.myConstraints, options={'disp': True, 'maxiter':10000})
+    #status = scipy.optimize.minimize(self.function, start_vals, method='SLSQP', bounds=self.myBounds, constraints=self.myConstraints, options={'disp': True, 'maxiter':10000})
     updated_start_vals = status.x
     # Work on tightening convergence criteria! Test this using ICHEP results
     options_dict = self.getOptionsDict(self.minAlg)
     print "Beginning robust fit"
     print self.minAlg,options_dict
     status = scipy.optimize.minimize(self.function, updated_start_vals, method=self.minAlg, jac=self.function_der, bounds=self.myBounds, constraints=self.myConstraints, options=options_dict)
-    print status
+    print "Final parameter values:"
+    print status.x
 
 #    updated_start_vals = start_vals
 #    for order in orders :
@@ -369,14 +393,18 @@ class FunctionlessFitter :
     #   log L = \Sum_{bins} (log(b^2 * e^{-b}/d!))
     #         = \sum_{bins} (d ln b - b - ln(Gamma(d+1)))
     
+    # Expectation in each bin is parameter times scale factor to bring it
+    # to the proper magnitude.
+    
     answer = 0
+    #print "pars:"
     for index in range(len(obs)) :
 
       if self.excludeWindow and index > self.windowLow-1 and index < self.windowHigh+1 :
         continue
 
       data = int(obs[index])
-      bkg = exp[index]*self.selectedbinwidths[index]
+      bkg = exp[index]*self.selectedbinwidths[index]*self.scaleParsBy[index]
       #print "\tcompare",data,"to",bkg
       if data < 0.0 or bkg < 0.0 :
         thisterm = -1E10
@@ -384,6 +412,7 @@ class FunctionlessFitter :
         thisterm = -1.0*bkg
       else :
         thisterm = data * numpy.log(bkg) - bkg - scipy.special.gammaln(data+1)
+      #print "\t",exp[index]
       answer = answer - thisterm
     
     #print answer
@@ -394,6 +423,10 @@ class FunctionlessFitter :
 
     return
 
+
+  # Derivative w.r.t. PARAMETER
+  # not w.r.t. background prediction
+  # Parameter is what shifts.
   def jacobianLogL(self,obs,exp) :
 
     answer = []
@@ -404,17 +437,18 @@ class FunctionlessFitter :
         continue
 
       data = int(obs[index])
-      bkg = exp[index]*self.selectedbinwidths[index]
+      bkg = exp[index]*self.selectedbinwidths[index]*self.scaleParsBy[index]
       if data < 0.0 or bkg < 0.0:
         thisterm = 0.0
       elif data == 0.0 :
-        thisterm = 1.0
+        thisterm = self.selectedbinwidths[index]*self.scaleParsBy[index]
       else :
-        thisterm = 1.0 - (float(data)/float(bkg))
+        thisterm = (1.0 - (float(data)/float(bkg)))*self.selectedbinwidths[index]*self.scaleParsBy[index]
       answer.append(thisterm)
 
     return numpy.array(answer)
 
+    
   def jacobianChi2(self,obs,exp) :
   
     return
@@ -435,7 +469,7 @@ class FunctionlessFitter :
           continue
 
         data = int(obs[index])
-        bkg = exp[index]*self.selectedbinwidths[index]
+        bkg = exp[index]*self.selectedbinwidths[index]*self.scaleParsBy[index]
 
         if (self.excludeWindow and inIndex > self.windowLow-1 and inIndex < self.windowHigh+1) or\
            (data <= 0.0) or (bkg < 0.0) :
@@ -464,7 +498,7 @@ class FunctionlessFitter :
           continue
 
         data = int(obs[index])
-        bkg = exp[index]*self.selectedbinwidths[index]
+        bkg = exp[index]*self.selectedbinwidths[index]*self.scaleParsBy[index]
 
         if (self.excludeWindow and inIndex > self.windowLow-1 and inIndex < self.windowHigh+1) or\
            (data <= 0.0) or (bkg < 0.0) :
