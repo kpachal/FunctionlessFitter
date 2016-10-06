@@ -20,8 +20,8 @@ class RunFitter :
 
     #self.setEOYEValues()
     #self.setTLAValues()
-    self.setTLAFull()
-    #self.setICHEPValues()
+    #self.setTLAFull()
+    self.setICHEPValues()
 
   def setEOYEValues(self) :
 
@@ -90,6 +90,8 @@ class RunFitter :
 
     self.binLow = self.hist.FindBin(1100)
     self.binHigh = -1
+
+    self.myFitter.flatStartVal = 10.0
 
     self.myFitter.derivativeConstraints = {0:-1, 1:1, 2:-1, 3:1}
     #self.myFitter.derivativeConstraints = {0:-1, 1:1}

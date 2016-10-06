@@ -95,7 +95,7 @@ class FunctionlessFitter :
   
     start_vals = []
     for bin in range(len(self.selectedbincontents)) :
-      start_vals.append(self.flatStartVal/(self.scaleParsBy[bin]*self.selectedbinxvals[bin]))
+      start_vals.append(self.flatStartVal/self.scaleParsBy[bin])
     return start_vals
 
   def getStartVals_linear(self) :
@@ -104,11 +104,11 @@ class FunctionlessFitter :
       return -1
     
     run = self.selectedbinxvals[-1] - self.selectedbinxvals[0]
-    slope = (self.selectedbincontents[-1] - self.selectedbincontents[0])/run
+    slope = (self.selectedbincontents[-1]/self.selectedbinwidths[-1] - self.selectedbincontents[0]/self.selectedbinwidths[0])/run
     start_vals = []
     for bin in range(len(self.selectedbincontents)) :
-      val = self.selectedbincontents[0] + slope*(self.selectedbinxvals[bin]-self.selectedbinxvals[0])
-      start_vals.append(val/(self.scaleParsBy[bin]*self.selectedbinxvals[bin]))
+      val = self.selectedbincontents[0]/self.selectedbinwidths[0] + slope*(self.selectedbinxvals[bin]-self.selectedbinxvals[0])
+      start_vals.append(val/self.scaleParsBy[bin])
     return start_vals
     
   def getStartVals_exponential(self) :
@@ -125,14 +125,14 @@ class FunctionlessFitter :
       index = index + 1
       if content > 0 :
         x1 = self.selectedbinxvals[index]
-        y1 = content
+        y1 = content/self.selectedbinwidths[index]
         break
     index = len(self.selectedbincontents)
     for content in reversed(self.selectedbincontents) :
       index = index - 1
       if content > 0 :
         x2 = self.selectedbinxvals[index]
-        y2 = content
+        y2 = content/self.selectedbinwidths[index]
         break
 
     # Now calculate a and b from x1 and x2:
@@ -146,7 +146,7 @@ class FunctionlessFitter :
     for bin in range(len(self.selectedbincontents)) :
       x = self.selectedbinxvals[bin]
       y = y2*numpy.exp(b*(x - x2))
-      start_vals.append(y/(self.scaleParsBy[bin]*self.selectedbinxvals[bin]))
+      start_vals.append(y/self.scaleParsBy[bin])
     return start_vals
 
 
