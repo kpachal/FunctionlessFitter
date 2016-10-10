@@ -1,5 +1,7 @@
 import ROOT
 import numpy
+from decimal import *
+getcontext().prec = 28
 
 class WrappedHist() :
 
@@ -79,12 +81,12 @@ class WrappedHist() :
       while parVal > 10.0 :
         parVal = parVal/10.0
         scale = scale*10
-      #scale = 1.0
-      self.scaleFactors.append(scale)
+      scale = 1.0
+      self.scaleFactors.append(Decimal(scale))
 
-      selectedbincontents.append(self.histogram.GetBinContent(bin))
-      selectedbinxvals.append(self.binxvals[bin])
-      selectedbinwidths.append(self.histogram.GetBinWidth(bin))
+      selectedbincontents.append(Decimal(self.histogram.GetBinContent(bin)))
+      selectedbinxvals.append(Decimal(self.binxvals[bin]))
+      selectedbinwidths.append(Decimal(self.histogram.GetBinWidth(bin)))
       if bin == windowLow :
         indexLow = len(selectedbincontents)-1
       if bin == windowHigh :

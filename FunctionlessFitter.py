@@ -4,6 +4,10 @@ import scipy
 from scipy import optimize
 from scipy import special
 from HistWrapper import WrappedHist
+from fractions import *
+from decimal import *
+getcontext().prec = 28
+from numbers import *
 
 class FunctionlessFitter :
 
@@ -103,8 +107,8 @@ class FunctionlessFitter :
       print "Fill bins first!"
       return -1
     
-    run = self.selectedbinxvals[-1] - self.selectedbinxvals[0]
-    slope = (self.selectedbincontents[-1]/self.selectedbinwidths[-1] - self.selectedbincontents[0]/self.selectedbinwidths[0])/run
+    run = Decimal(self.selectedbinxvals[-1] - self.selectedbinxvals[0])
+    slope = Decimal((self.selectedbincontents[-1]/self.selectedbinwidths[-1] - self.selectedbincontents[0]/self.selectedbinwidths[0])/run)
     start_vals = []
     for bin in range(len(self.selectedbincontents)) :
       val = self.selectedbincontents[0]/self.selectedbinwidths[0] + slope*(self.selectedbinxvals[bin]-self.selectedbinxvals[0])
@@ -161,11 +165,13 @@ class FunctionlessFitter :
     # 0th degree derivatives
     baseDict = {}
     for bin in range(len(self.selectedbinxvals)) :
-      baseDict[bin] = "pars[{0}]*{1}".format(bin,self.scaleParsBy[bin])
+      baseDict[bin] = "Decimal(pars[{0}]*{1})".format(bin,self.scaleParsBy[bin])
+      #baseDict[bin] = "(pars[{0}]*{1})".format(bin,self.scaleParsBy[bin])
     self.dividedDifferenceDatabase[0] = baseDict
   
     # 0th degree Jacobian matrix
-    baseJac = numpy.identity(len(self.selectedbinxvals))*self.scaleParsBy
+    baseJac = numpy.identity(len(self.selectedbinxvals),dtype=Decimal)*self.scaleParsBy
+    print baseJac
     self.jacobianDatabase[0] = baseJac
   
     # higher order derivatives and jacobians
@@ -182,18 +188,19 @@ class FunctionlessFitter :
         # Difference for the constraint itself
         fxa = lastorderdict[index]
         fxb = lastorderdict[index+1]
-        diff = "({1}-{0})/({3}-{2})".format(fxa, fxb, self.selectedbinxvals[index],self.selectedbinxvals[index+order])
+        diff = "Decimal({1}-{0})/Decimal({3}-{2})".format(fxa, fxb, self.selectedbinxvals[index],self.selectedbinxvals[index+order])
+        #diff = "Fraction(({1}-{0}),Rational({3}-{2}))".format(fxa, fxb, self.selectedbinxvals[index],self.selectedbinxvals[index+order])
         thisorderdict[index] = diff
 
         jacRow = []
         for column in range(len(self.selectedbinxvals) - order+1) :
           val = self.selectedbinxvals[index+order] - self.selectedbinxvals[index]
           if column == index :
-            jacRow.append(-1.0/val)
+            jacRow.append(Decimal(-1.0)/val)
           elif column == index+1 :
-            jacRow.append(1.0/val)
+            jacRow.append(Decimal(1.0)/val)
           else :
-            jacRow.append(0)
+            jacRow.append(Decimal(0.0))
         A.append(jacRow)
 
       self.dividedDifferenceDatabase[int(order)] = thisorderdict
@@ -205,6 +212,7 @@ class FunctionlessFitter :
       self.computeConstraints(degree)
 
     constraints = []
+    self.eqDict = {}
     nPars = len(self.selectedbincontents)
     
     for index in range(nPars-degree-1) :
@@ -212,14 +220,29 @@ class FunctionlessFitter :
       term1 = self.dividedDifferenceDatabase[degree][index]
       term2 = self.dividedDifferenceDatabase[degree][index+1]
     
-      eqString = "["
+      # At this point it's possible to compare scalePars of terms that ended up relevant
+      # and scale constraints and jacobians down by them. Let's see if that
+      # stabilises the convergence in the scaled cases.
+      # We know what indices were relevant in this spot:
+#      relevantIndices = range(index,index+degree+2)
+#      relevantScales = self.scaleParsBy[index:index+degree+2]
+#      minScale = min(relevantScales)
+#      newScales = [x/minScale for x in relevantScales]
+
+      #eqString = "["
+      eqString = ""
       if slope < 0 : eqString = eqString + " - "
       eqString = eqString + term2
       if slope < 0 : eqString = eqString + " + "
       else : eqString = eqString + " - "
       eqString = eqString + term1
-      eqString = eqString + "]"
+      #eqString = eqString + "]"
     
+      # Implement scaling of eqString to new lowest common denominators
+#      for subindex in relevantIndices :
+#        eqString = eqString.replace("pars[{0}]*{1}".format(subindex,relevantScales[relevantIndices.index(subindex)]),"pars[{0}]*{1}".format(subindex,newScales[relevantIndices.index(subindex)]))
+#        eqString = eqString.replace("(pars[","{0}*(pars[".format(minScale*10.0))
+
       vec1 = numpy.array(self.jacobianDatabase[degree][index])
       vec2 = numpy.array(self.jacobianDatabase[degree][index+1])
       jacobian = slope*vec2 - slope*vec1
@@ -228,8 +251,10 @@ class FunctionlessFitter :
         jacString = jacString + "{0}, ".format(term)
       jacString = jacString + "]"
 
+      self.eqDict[index] = {'eq' : eqString, 'jac' : eval(jacString)}
+
       code = """constraint = {0}'type': 'ineq',
-        'fun' : lambda pars: numpy.array({1}),
+        'fun' : lambda pars: {1},
         'jac' : lambda pars: numpy.array({2}){3}""".format("{",eqString,jacString,"}")
       exec code
       constraints.append(constraint)
@@ -310,7 +335,6 @@ class FunctionlessFitter :
       status = scipy.optimize.minimize(self.function, start_vals, method='SLSQP', jac=self.function_der, bounds=self.myBounds, options={'disp': True, 'maxiter':10000})
     else :
       status = scipy.optimize.minimize(self.function, start_vals, method='SLSQP', jac=self.function_der, bounds=self.myBounds, constraints=self.myConstraints, options={'disp': True, 'maxiter':10000})
-    #status = scipy.optimize.minimize(self.function, start_vals, method='SLSQP', bounds=self.myBounds, constraints=self.myConstraints, options={'disp': True, 'maxiter':10000})
     updated_start_vals = status.x
     # Work on tightening convergence criteria! Test this using ICHEP results
     options_dict = self.getOptionsDict(self.minAlg)
@@ -322,6 +346,7 @@ class FunctionlessFitter :
       status = scipy.optimize.minimize(self.function, updated_start_vals, method=self.minAlg, jac=self.function_der, bounds=self.myBounds, constraints=self.myConstraints, options=options_dict)
     print "Final parameter values:"
     print status.x
+    self.parameterVals = status.x
 
 #    updated_start_vals = start_vals
 #    for order in orders :
@@ -343,7 +368,8 @@ class FunctionlessFitter :
 #      print status
 #      updated_start_vals = status.x
 #
-    self.result = numpy.multiply(status.x,self.scaleParsBy)
+    self.result = numpy.multiply(numpy.array(status.x,dtype=Decimal),self.scaleParsBy)
+    #print "here, self.result is",self.result
 
     # Return a histogram with bin contents equal to fit results
     outputHist = spectrum.histogram.Clone("fitResult")
@@ -397,26 +423,39 @@ class FunctionlessFitter :
     # Expectation in each bin is parameter times scale factor to bring it
     # to the proper magnitude.
     
-    answer = 0
+    answer = Decimal(0.0)
     #print "pars:"
     for index in range(len(obs)) :
 
       if self.excludeWindow and index > self.windowLow-1 and index < self.windowHigh+1 :
         continue
 
+#      data = int(obs[index])
+#      bkg = exp[index]*self.selectedbinwidths[index]*self.scaleParsBy[index]
+#      #print "\tcompare",data,"to",bkg
+#      if data < 0.0 or bkg < 0.0 :
+#        thisterm = -1E10
+#      elif data == 0.0 :
+#        thisterm = -1.0*bkg
+#      else :
+#        thisterm = data * numpy.log(bkg) - bkg - scipy.special.gammaln(data+1.0)
+#      #print "\t",exp[index]
+#      answer = answer - thisterm
+
       data = int(obs[index])
-      bkg = exp[index]*self.selectedbinwidths[index]*self.scaleParsBy[index]
+      bkg = Decimal(exp[index])*self.selectedbinwidths[index]*self.scaleParsBy[index]
       #print "\tcompare",data,"to",bkg
       if data < 0.0 or bkg < 0.0 :
-        thisterm = -1E10
+        thisterm = Decimal(-1E10)
       elif data == 0.0 :
-        thisterm = -1.0*bkg
+        thisterm = Decimal(-1.0)*bkg
       else :
-        thisterm = data * numpy.log(bkg) - bkg - scipy.special.gammaln(data+1)
+#        thisterm = data * numpy.log(bkg) - bkg - scipy.special.gammaln(data+1.0)
+        thisterm = data * bkg.ln() - bkg - Decimal(scipy.special.gammaln(data+1.0))
       #print "\t",exp[index]
       answer = answer - thisterm
-    
-    #print answer
+        
+    print answer
     return answer
 
 
@@ -438,16 +477,16 @@ class FunctionlessFitter :
         continue
 
       data = int(obs[index])
-      bkg = exp[index]*self.selectedbinwidths[index]*self.scaleParsBy[index]
+      bkg = Decimal(exp[index])*self.selectedbinwidths[index]*self.scaleParsBy[index]
       if data < 0.0 or bkg < 0.0:
-        thisterm = 0.0
+        thisterm = Decimal(0.0)
       elif data == 0.0 :
         thisterm = self.selectedbinwidths[index]*self.scaleParsBy[index]
       else :
-        thisterm = (1.0 - (float(data)/float(bkg)))*self.selectedbinwidths[index]*self.scaleParsBy[index]
+        thisterm = (Decimal(1.0) - (Decimal(data)/bkg))*self.selectedbinwidths[index]*self.scaleParsBy[index]
       answer.append(thisterm)
 
-    return numpy.array(answer)
+    return numpy.array(answer,dtype=Decimal)
 
     
   def jacobianChi2(self,obs,exp) :
