@@ -20,8 +20,8 @@ class RunFitter :
     self.myFitter.flatStartVal = 1.0
 
     #self.setEOYEValues()
-    #self.setTLAValues()
-    self.setTLAFull()
+    self.setTLAValues()
+    #self.setTLAFull()
     #self.setICHEPValues()
 
   def setEOYEValues(self) :
@@ -101,10 +101,10 @@ class RunFitter :
   
   def executeFit(self) :
 
-    wInput = WrappedHist(self.hist,scaleXAxis=True)
+    wInput = WrappedHist(self.hist)
 
     # Define various start values.
-    startVals = ["linear"]#["data"]#,"dataP5","exp","flat","linear","prelimFit"]
+    startVals = ["data","dataP5","exp","flat","linear","prelimFit"]
     
     # Make a bump hunter
     bumpHunter = BumpHunter()
@@ -119,7 +119,7 @@ class RunFitter :
     datap5 = []
     startValHist = self.hist.Clone("startValHist")
     startValHist.SetName("startValHist")
-    getStartVals = WrappedHist(startValHist,scaleXAxis=True,scaleBy=wInput.scaleamount)
+    getStartVals = WrappedHist(startValHist)
     if self.binHigh < 0 :
       fullVals, xvals, widths, w1, w2 = wInput.getSelectedBinInfo(self.binLow,getStartVals.lastBinWithData)
     else :
@@ -168,24 +168,24 @@ class RunFitter :
       residual.SetTitle("residual_"+valType)
       residual.Write()
     
-      # Examine constraints and how result fulfilled them.
-      constraintList = self.myFitter.getDerivativeConstraints(2,-1)
-      equations = self.myFitter.eqDict
-      index = -1
+#      # Examine constraints and how result fulfilled them.
+#      constraintList = self.myFitter.getDerivativeConstraints(2,-1)
+#      equations = self.myFitter.eqDict
+#      index = -1
 #      testPars = [1.0]*63
 #      testPars[58] = 1000.0
 #      testPars[59] = 100.0
 #      testPars[60] = 10.0
 #      testPars[61] = 1.0
-      testPars = self.myFitter.getStartVals_linear()
-      for tconstraint in constraintList :
+#      testPars = self.myFitter.getStartVals_linear()
+#      for tconstraint in constraintList :
         #print "Beginning new constraint."
         #index = index+1
         #for test in range(len(equations[index]['jac'])) :
         #  if equations[index]['jac'][test] != 0 :
         #    print test,":",testPars[test],
         #print "\n",tconstraint["fun"](self.myFitter.result)
-        print tconstraint["fun"](testPars)
+        #print tconstraint["fun"](testPars)
         #print equations[index]['eq']
         #print constraint["fun"](self.myFitter.result)
         #code = "tryhere = lambda pars: {0}".format(equations[index]['eq'])

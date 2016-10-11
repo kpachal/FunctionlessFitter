@@ -5,31 +5,9 @@ getcontext().prec = 28
 
 class WrappedHist() :
 
-  def __init__(self,inputHist, seed=0, binStructure="central",scaleXAxis=False,scaleBy=-1) :
+  def __init__(self,inputHist, seed=0, binStructure="central") :
 
-    self.original = inputHist
     self.histogram = inputHist
-    self.scaleamount = 1
-#    if scaleXAxis :
-#      if scaleBy > 0 :
-#        self.scaleamount = scaleBy
-#      else :
-#        self.scaleamount = 1
-#        useWidth = self.histogram.GetBinWidth(self.histogram.GetNbinsX())
-#        while useWidth > 10.0 :
-#          useWidth = useWidth/10.0
-#          self.scaleamount = self.scaleamount*10
-#      a = self.histogram.GetXaxis()
-#      if (a.GetXbins().GetSize()) :
-#        oldbins = a.GetXbins()
-#        newbins = []
-#        for edge in oldbins : newbins.append(edge/self.scaleamount)
-#        self.histogram = ROOT.TH1D(self.original.GetName()+"_rebinned",self.original.GetName()+"_rebinned",(len(newbins) - 1), numpy.array(newbins))
-#      else :
-#        self.histogram = ROOT.TH1D(self.original.GetName()+"_rebinned",self.original.GetName()+"_rebinned",a.GetNbins(), a.GetXmin()/self.scaleamount, a.GetXmax()/self.scaleamount )
-#      for bin in range(self.histogram.GetNbinsX()+2) :
-#        self.histogram.SetBinContent(bin,self.original.GetBinContent(bin))
-#        self.histogram.SetBinError(bin,self.original.GetBinError(bin))
 
     self.getHistOutermostBinsWithData()
     self.bincontents = []
@@ -81,7 +59,6 @@ class WrappedHist() :
       while parVal > 10.0 :
         parVal = parVal/10.0
         scale = scale*10
-      scale = 1.0
       self.scaleFactors.append(Decimal(scale))
 
       selectedbincontents.append(Decimal(self.histogram.GetBinContent(bin)))
