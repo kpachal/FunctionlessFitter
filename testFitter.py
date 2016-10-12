@@ -41,8 +41,8 @@ class RunFitter :
     # Make a fitter
     self.myFitter = FunctionlessFitter()
 
-    self.setEOYEValues()
-    #self.setTLAValues()
+    #self.setEOYEValues()
+    self.setTLAValues()
     #self.setICHEPValues()
 
   def setEOYEValues(self) :

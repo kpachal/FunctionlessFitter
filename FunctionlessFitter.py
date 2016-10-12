@@ -57,10 +57,12 @@ class FunctionlessFitter :
       # 'rhobeg': how far can we move from the start parameters?
       #           If you are using start parameters very far from
       #           the scale of the final out come (e.g. linear at 1)
-      #           this needs to be set very high to allow them to change sufficiently
+      #           this needs to be set very high to allow them to change sufficiently.
+      #           Right now the "true" final fit is done with scaled parameters
+      #           so this doesn't need to be so big. Was 1e6 before.
       # 'tol': tolerance of final result. By default none specified
       # 'catol': tolerance of constraint violations. By default 0.0002
-      options={'disp': True, 'maxiter':1000, 'rhobeg':1e6, 'tol':1e-5, 'catol':1e-5}
+      options={'disp': True, 'maxiter':1000, 'rhobeg':50, 'tol':1e-5, 'catol':1e-5}
     else :
       raise ValueError("Unrecognized minimization algorithm!\nPlease use one of 'SLSQP','COBYLA'")
 
@@ -310,7 +312,6 @@ class FunctionlessFitter :
       status = scipy.optimize.minimize(self.function, start_vals, method='SLSQP', jac=self.function_der, bounds=self.myBounds, options={'disp': True, 'maxiter':10000})
     else :
       status = scipy.optimize.minimize(self.function, start_vals, method='SLSQP', jac=self.function_der, bounds=self.myBounds, constraints=self.myConstraints, options={'disp': True, 'maxiter':10000})
-    #status = scipy.optimize.minimize(self.function, start_vals, method='SLSQP', bounds=self.myBounds, constraints=self.myConstraints, options={'disp': True, 'maxiter':10000})
     updated_start_vals = status.x
     # Work on tightening convergence criteria! Test this using ICHEP results
     options_dict = self.getOptionsDict(self.minAlg)

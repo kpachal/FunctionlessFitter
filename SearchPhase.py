@@ -21,6 +21,7 @@ class RunSearchPhase :
   
     # Make a fitter
     self.myFitter = FunctionlessFitter()
+    self.myFitter.minAlg = "COBYLA"
     
     # Options which can be set by command line
     self.noDataErr = False
@@ -81,7 +82,7 @@ class RunSearchPhase :
         startVals.append(item/widths[index])
       self.myFitter.startValFormat = "user"
       self.myFitter.userStartVals = startVals
-    self.myFitter.derivativeConstraints = { 0:-1, 1:1, 2:-1, 3:1, 4:-1, 5:1, 6:-1, 7:1}
+    self.myFitter.derivativeConstraints = { 0:-1, 1:1, 2:-1, 3:1, 4:-1}#, 5:1, 6:-1, 7:1}
 
     # Fit the histogram
     prelim_result = self.myFitter.fit(self.theHistogram,self.firstBinFit,self.lastBinFit)
