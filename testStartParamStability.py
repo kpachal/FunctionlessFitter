@@ -2,6 +2,7 @@ import sys
 import os
 import ROOT
 import scipy
+from decimal import *
 
 from HistWrapper import WrappedHist
 from FunctionlessFitter import FunctionlessFitter
@@ -73,6 +74,7 @@ class RunFitter :
     self.binHigh = -1
 
     self.myFitter.derivativeConstraints = {0:-1, 1:1, 2:-1, 3:1}
+#    self.myFitter.derivativeConstraints = {0:-1, 1:1, 2:-1}
 
     self.myFitter.flatStartVal = 1.0
     
@@ -90,7 +92,7 @@ class RunFitter :
     self.binLow = self.hist.FindBin(1100)
     self.binHigh = -1
 
-    self.myFitter.flatStartVal = 10.0
+    self.myFitter.flatStartVal = 1.0
 
     self.myFitter.derivativeConstraints = {0:-1, 1:1, 2:-1, 3:1}
     #self.myFitter.derivativeConstraints = {0:-1, 1:1}
@@ -102,7 +104,7 @@ class RunFitter :
     wInput = WrappedHist(self.hist,scaleXAxis=True)
 
     # Define various start values.
-    startVals = ["data","dataP5","exp","flat","linear","prelimFit"]
+    startVals = ["linear"]#["data"]#,"dataP5","exp","flat","linear","prelimFit"]
     
     # Make a bump hunter
     bumpHunter = BumpHunter()
@@ -126,7 +128,7 @@ class RunFitter :
     for item in fullVals :
       index = index+1
       data.append(item/widths[index])
-      datap5.append(1.05*(item/widths[index]))
+      datap5.append(Decimal(1.05)*(item/widths[index]))
     startValDict["data"] = data
     startValDict["dataP5"] = datap5
     
@@ -166,6 +168,34 @@ class RunFitter :
       residual.SetTitle("residual_"+valType)
       residual.Write()
     
+      # Examine constraints and how result fulfilled them.
+      constraintList = self.myFitter.getDerivativeConstraints(2,-1)
+      equations = self.myFitter.eqDict
+      index = -1
+#      testPars = [1.0]*63
+#      testPars[58] = 1000.0
+#      testPars[59] = 100.0
+#      testPars[60] = 10.0
+#      testPars[61] = 1.0
+      testPars = self.myFitter.getStartVals_linear()
+      for tconstraint in constraintList :
+        #print "Beginning new constraint."
+        #index = index+1
+        #for test in range(len(equations[index]['jac'])) :
+        #  if equations[index]['jac'][test] != 0 :
+        #    print test,":",testPars[test],
+        #print "\n",tconstraint["fun"](self.myFitter.result)
+        print tconstraint["fun"](testPars)
+        #print equations[index]['eq']
+        #print constraint["fun"](self.myFitter.result)
+        #code = "tryhere = lambda pars: {0}".format(equations[index]['eq'])
+        #exec code
+        #myversion = tryhere(testPars)
+        #print tryhere(self.myFitter.result)
+        #print "my version:",myversion
+
+        #print "\n",constraint["jac"](self.myFitter.result)
+
     # Compare to nominal fit result from the old code, if available
     if self.nominalFitFile :
       nominalFit = self.nominalFitFile.Get("basicBkgFrom4ParamFit")
