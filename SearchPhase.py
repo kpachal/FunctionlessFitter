@@ -21,7 +21,7 @@ class RunSearchPhase :
   
     # Make a fitter
     self.myFitter = FunctionlessFitter()
-    self.myFitter.minAlg = "COBYLA"
+    #self.myFitter.minAlg = "COBYLA"
     
     # Options which can be set by command line
     self.noDataErr = False
@@ -50,9 +50,9 @@ class RunSearchPhase :
     # Access input file and get histogram to fit
     basichist = self.readFile()
     # Make wrapped version which we will use for many tests
-    self.theHistogram = WrappedHist(basichist,scaleXAxis=True)#,scaleBy=1)
-    self.minX = self.minX/self.theHistogram.scaleamount
-    self.maxX = self.maxX/self.theHistogram.scaleamount
+    self.theHistogram = WrappedHist(basichist)#,scaleBy=1)
+    #self.minX = self.minX
+    #self.maxX = self.maxX
     
     # Get range for fit
     if self.minX > self.theHistogram.histogram.GetBinLowEdge(self.theHistogram.lastBinWithData+1)\
@@ -73,7 +73,7 @@ class RunSearchPhase :
     else :
       startVals = []
       self.histForStartVals.SetName("histForStartVals")
-      getStartVals = WrappedHist(self.histForStartVals,scaleXAxis=True,scaleBy=self.theHistogram.scaleamount)
+      getStartVals = WrappedHist(self.histForStartVals)
       fullVals, xvals, widths, w1, w2 = getStartVals.getSelectedBinInfo(self.firstBinFit,self.lastBinFit)
       index = -1
       for item in fullVals :

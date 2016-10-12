@@ -20,8 +20,8 @@ class RunFitter :
 
     #self.setEOYEValues()
     #self.setTLAValues()
-    #self.setTLAFull()
-    self.setICHEPValues()
+    self.setTLAFull()
+    #self.setICHEPValues()
 
   def setEOYEValues(self) :
 
@@ -44,19 +44,19 @@ class RunFitter :
 
   def setTLAValues(self) :
 
-    # Get a histogram we want to fit. I'll use dijets EOYE.
-    self.infile = ROOT.TFile("samples/mjj_fullDataset.root")
-    self.nominalFitFile = ROOT.TFile("samples/SearchResultData_UA2_fullDataset_yStar0p3_from394_permitWindow.root","READ")
+    # Get a histogram we want to fit. This is TLA.
+    self.infile = ROOT.TFile("samples/mjj_fullDataset")
+    self.nominalFitFile = ROOT.TFile("samples/SearchResultData_UA2_fullDataset_from443.root","READ")
     self.hist = self.infile.Get("mjj")
     self.hist.SetDirectory(0)
     self.infile.Close()
 
-    self.binLow = self.hist.FindBin(395)
-    self.binHigh = self.hist.FindBin(1100) #1252
+    self.binLow = self.hist.FindBin(444)
+    self.binHigh = self.hist.FindBin(1220) #1252
 
     self.myFitter.derivativeConstraints = {0:-1, 1:1, 2:-1, 3:1}
 
-    self.myFitter.flatStartVal = 5E4
+    self.myFitter.flatStartVal = 1.0
     
     self.outputFileName = "results/test/outputfile_testStartParamStability_TLA.root"
 
@@ -65,17 +65,16 @@ class RunFitter :
     # Get a histogram we want to fit. I'll use dijets EOYE.
     self.infile = ROOT.TFile("samples/mjj_fullDataset.root")
     self.nominalFitFile = ""
-    #self.nominalFitFile = ROOT.TFile("samples/SearchResultData_UA2_fullDataset_yStar0p3_from394_permitWindow.root","READ")
     self.hist = self.infile.Get("mjj")
     self.hist.SetDirectory(0)
     self.infile.Close()
 
-    self.binLow = self.hist.FindBin(395)
+    self.binLow = self.hist.FindBin(444)
     self.binHigh = -1
 
     self.myFitter.derivativeConstraints = {0:-1, 1:1, 2:-1, 3:1}
 
-    self.myFitter.flatStartVal = 5E4
+    self.myFitter.flatStartVal = 1.0
     
     self.outputFileName = "results/test/outputfile_testStartParamStability_TLAFull.root"
 
