@@ -328,6 +328,7 @@ class FunctionlessFitter :
     self.scaleParsBy = spectrum.scaleFactors
     self.computeConstraints(max(orders))
     self.myConstraints = []
+    print orders
     for order in orders :
       slope = self.derivativeConstraints[order]
       self.myConstraints = self.myConstraints + self.getDerivativeConstraints(order,slope)
