@@ -336,34 +336,52 @@ class FunctionlessFitter :
     # Add smoothing routine for user-supplied start values
     # Use COBYLA with loosened tolerance on parameter constraint obedience
     # to smooth, for instance, data values so they obey further iterations
-    print "We are starting from unscaled parameters."
-    #print start_vals_unscaled
-    self.scaleParsBy = self.getFlatVector(len(self.selectedbinxvals),1.0)
-    if self.startValFormat == "user" or self.startValFormat == "flat":
+    # rhobeg was 1e4 for non-scaled system but is now lower because of parameter adjustments
+    #looseOpts = {'disp': True, 'maxiter':1000, 'rhobeg':50, 'tol':1e-7, 'catol':1e-2} # 2 and 2 good.
+    #looseOpts = {'disp': True, 'maxiter':1000, 'rhobeg':1e5, 'tol':1e-6, 'catol':1e-2} # 2 and 2 good.
+    looseOpts = {'disp': True, 'maxiter':1000,'catol':1e-2} # 2 and 2 good.
+    if self.startValFormat == "user" :
+      # If we are using start values within an even vaguely reasonable distance of the
+      # final result, we get our best chance by taking smaller steps and combing the
+      # parameter space thoroughly. Use unscaled parameters.
       print "Beginning input value smoothing"
-      # rhobeg was 1e4 for non-scaled system but is now lower because of parameter adjustments
-      #looseOpts = {'disp': True, 'maxiter':1000, 'rhobeg':50, 'tol':1e-7, 'catol':1e-2} # 2 and 2 good.
-      looseOpts = {'disp': True, 'maxiter':1000, 'rhobeg':1e4, 'tol':1e-7, 'catol':1e-2} # 2 and 2 good.
+      print "We are starting from unscaled parameters."
+      self.scaleParsBy = self.getFlatVector(len(self.selectedbinxvals),1.0)
+      print "start_vals_unscaled are:",start_vals_unscaled
       if debug :
         status = scipy.optimize.minimize(self.function, start_vals_unscaled, method='COBYLA', options=looseOpts)
       else :
         status = scipy.optimize.minimize(self.function, start_vals_unscaled, method='COBYLA', constraints=self.unscaledConstraints, options=looseOpts)
+      start_vals_unscaled = status.x
+    elif self.startValFormat == "flat":
+      # If we are very, very far from a minimum, oversized steps may be the only way to get anywhere close.
+      print "Beginning input value smoothing"
+      if debug :
+        status = scipy.optimize.minimize(self.function, start_vals, method='COBYLA', options=looseOpts)
+      else :
+        status = scipy.optimize.minimize(self.function, start_vals, method='COBYLA', constraints=self.myConstraints, options=looseOpts)
       start_vals = status.x
+      start_vals_unscaled = numpy.multiply([Decimal(val) for val in start_vals],spectrum.scaleFactors)
 
+    #updated_start_vals = numpy.divide([Decimal(val) for val in start_vals_unscaled],spectrum.scaleFactors)
+
+    self.scaleParsBy = self.getFlatVector(len(self.selectedbinxvals),1.0)
     print "Beginning simple fit."
+    print "start_val_unscaled are:",start_vals_unscaled
     if debug :
       status = scipy.optimize.minimize(self.function, start_vals_unscaled, method='SLSQP', jac=self.function_der, bounds=self.myBounds, options={'disp': True, 'maxiter':10000})
     else :
       status = scipy.optimize.minimize(self.function, start_vals_unscaled, method='SLSQP', jac=self.function_der, bounds=self.myBounds, constraints=self.unscaledConstraints, options={'disp': True, 'maxiter':10000})
-    #updated_start_vals = status.x
-    
-    updated_start_vals = numpy.divide([Decimal(val) for val in status.x],spectrum.scaleFactors)
+    updated_start_vals = status.x
+    print "unscaled, updated_start_vals are:",updated_start_vals
+    updated_start_vals = numpy.divide([Decimal(val) for val in updated_start_vals],spectrum.scaleFactors)
 
     # Work on tightening convergence criteria!
     print "Returning to scaled parameters and beginning robust fit"
     options_dict = self.getOptionsDict(self.minAlg)
     self.scaleParsBy = spectrum.scaleFactors
     print self.minAlg,options_dict
+    print "scaled, updated_start_vals are:",updated_start_vals
     if debug :
       status = scipy.optimize.minimize(self.function, updated_start_vals, method=self.minAlg, jac=self.function_der, bounds=self.myBounds, options=options_dict)
     else :
@@ -433,18 +451,6 @@ class FunctionlessFitter :
       if self.excludeWindow and index > self.windowLow-1 and index < self.windowHigh+1 :
         continue
 
-#      data = int(obs[index])
-#      bkg = exp[index]*self.selectedbinwidths[index]*self.scaleParsBy[index]
-#      #print "\tcompare",data,"to",bkg
-#      if data < 0.0 or bkg < 0.0 :
-#        thisterm = -1E10
-#      elif data == 0.0 :
-#        thisterm = -1.0*bkg
-#      else :
-#        thisterm = data * numpy.log(bkg) - bkg - scipy.special.gammaln(data+1.0)
-#      #print "\t",exp[index]
-#      answer = answer - thisterm
-
       data = int(obs[index])
       bkg = Decimal(exp[index])*self.selectedbinwidths[index]*self.scaleParsBy[index]
       #print "\tcompare",data,"to",bkg
@@ -458,7 +464,6 @@ class FunctionlessFitter :
       #print "\t",exp[index]
       answer = answer - thisterm
         
-    #print answer
     return answer
 
 
@@ -565,23 +570,28 @@ class FunctionlessFitter :
     for bin in range(len(self.result)) :
       binArrays.append([])
 
+    self.lastUncertaintyFitStatuses = []
     for PE in range(self.nPEs) :
 
       thisPE = nominalHistWrapper.poissonFluctuateBinByBin()
       PEWrapper = WrappedHist(thisPE)
       # Need to reset thing we run on to be contents of thisPE
       self.selectedbincontents, self.selectedbinxvals, self.selectedbinwidths, self.windowLow, self.windowHigh = PEWrapper.getSelectedBinInfo(self.rangeLow,self.rangeHigh,self.firstBinInWindow,self.lastBinInWindow)
-      thisStatus = scipy.optimize.minimize(self.function, self.result, method=self.minAlg, jac=self.function_der, bounds=self.myBounds, constraints=self.myConstraints, options=options_dict)
-      print thisStatus
-      binResults = thisStatus.x
+      thisStatus = scipy.optimize.minimize(self.function, self.parameterVals, method=self.minAlg, jac=self.function_der, bounds=self.myBounds, constraints=self.myConstraints, options=options_dict)
+      #print thisStatus
+      paramResults = thisStatus.x
+      binResults = numpy.multiply([Decimal(val) for val in paramResults],self.scaleParsBy)
+      self.lastUncertaintyFitStatuses.append(thisStatus.status)
       index = -1
       for value in binResults :
         index = index+1
         binArrays[index].append(value)
 
     variances = []
+    self.lastUncertaintyBinContents = []
     for bin in range(len(self.result)) :
       vec = numpy.array(binArrays[bin])
+      self.lastUncertaintyBinContents.append(vec)
       variances.append(numpy.sqrt(numpy.vdot(vec, vec)/vec.size))
 
     return variances

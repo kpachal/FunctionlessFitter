@@ -42,13 +42,16 @@ def sigmaToProb(sigma) :
 
   return 0.5*(1.0 - scipy.special.erf(sigma/sqrt(2.0)))
 
-def makeHistFromVector(vector) :
+def makeHistFromVector(vector,alternateVal=-1) :
 
   nentries = len(vector)
-  nBins = int(float(nentries)/10.0)
+  if alternateVal > 0 :
+    nBins = int(float(nentries)/alternateVal)
+  else :
+    nBins = int(float(nentries)/10.0)
 
-  maxVal = max(vector)
-  minVal = min(vector)
+  maxVal = float(max(vector))
+  minVal = float(min(vector))
   range = maxVal - minVal
 
   plotmin = minVal-0.05*range
@@ -57,7 +60,7 @@ def makeHistFromVector(vector) :
   statPlot = ROOT.TH1D("statPlot","",nBins,plotmin,plotmax)
   for item in vector : statPlot.Fill(item)
 
-  return statPlot;
+  return statPlot
 
 def getPValFromVecAndStat(stat,vector) :
 
