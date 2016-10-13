@@ -196,6 +196,7 @@ class FunctionlessFitter :
         fxa = lastorderdict[index]
         fxb = lastorderdict[index+1]
         diff = "Decimal({1}-{0})/Decimal({3}-{2})".format(fxa, fxb, self.selectedbinxvals[index],self.selectedbinxvals[index+order])
+
         thisorderdict[index] = diff
 
         jacRow = []
@@ -372,6 +373,7 @@ class FunctionlessFitter :
       status = scipy.optimize.minimize(self.function, start_vals_unscaled, method='SLSQP', jac=self.function_der, bounds=self.myBounds, options={'disp': True, 'maxiter':10000})
     else :
       status = scipy.optimize.minimize(self.function, start_vals_unscaled, method='SLSQP', jac=self.function_der, bounds=self.myBounds, constraints=self.unscaledConstraints, options={'disp': True, 'maxiter':10000})
+
     updated_start_vals = status.x
     print "unscaled, updated_start_vals are:",updated_start_vals
     updated_start_vals = numpy.divide([Decimal(val) for val in updated_start_vals],spectrum.scaleFactors)
@@ -391,6 +393,7 @@ class FunctionlessFitter :
     self.parameterVals = status.x
 
     self.result = numpy.multiply([Decimal(val) for val in status.x],self.scaleParsBy)
+
 
     # Return a histogram with bin contents equal to fit results
     outputHist = spectrum.histogram.Clone("fitResult")
@@ -450,6 +453,18 @@ class FunctionlessFitter :
 
       if self.excludeWindow and index > self.windowLow-1 and index < self.windowHigh+1 :
         continue
+
+#      data = int(obs[index])
+#      bkg = exp[index]*self.selectedbinwidths[index]*self.scaleParsBy[index]
+#      #print "\tcompare",data,"to",bkg
+#      if data < 0.0 or bkg < 0.0 :
+#        thisterm = -1E10
+#      elif data == 0.0 :
+#        thisterm = -1.0*bkg
+#      else :
+#        thisterm = data * numpy.log(bkg) - bkg - scipy.special.gammaln(data+1.0)
+#      #print "\t",exp[index]
+#      answer = answer - thisterm
 
       data = int(obs[index])
       bkg = Decimal(exp[index])*self.selectedbinwidths[index]*self.scaleParsBy[index]
