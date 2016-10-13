@@ -429,6 +429,7 @@ class FunctionlessFitter :
           outputHist.SetBinError(bin,0.0)
         else :
           error = variances[bin - self.rangeLow]
+          print "Adding error",error,"to bin",bin
           outputHist.SetBinError(bin,error)
 
     else :
@@ -453,18 +454,6 @@ class FunctionlessFitter :
 
       if self.excludeWindow and index > self.windowLow-1 and index < self.windowHigh+1 :
         continue
-
-#      data = int(obs[index])
-#      bkg = exp[index]*self.selectedbinwidths[index]*self.scaleParsBy[index]
-#      #print "\tcompare",data,"to",bkg
-#      if data < 0.0 or bkg < 0.0 :
-#        thisterm = -1E10
-#      elif data == 0.0 :
-#        thisterm = -1.0*bkg
-#      else :
-#        thisterm = data * numpy.log(bkg) - bkg - scipy.special.gammaln(data+1.0)
-#      #print "\t",exp[index]
-#      answer = answer - thisterm
 
       data = int(obs[index])
       bkg = Decimal(exp[index])*self.selectedbinwidths[index]*self.scaleParsBy[index]
@@ -593,21 +582,29 @@ class FunctionlessFitter :
       # Need to reset thing we run on to be contents of thisPE
       self.selectedbincontents, self.selectedbinxvals, self.selectedbinwidths, self.windowLow, self.windowHigh = PEWrapper.getSelectedBinInfo(self.rangeLow,self.rangeHigh,self.firstBinInWindow,self.lastBinInWindow)
       thisStatus = scipy.optimize.minimize(self.function, self.parameterVals, method=self.minAlg, jac=self.function_der, bounds=self.myBounds, constraints=self.myConstraints, options=options_dict)
-      #print thisStatus
       paramResults = thisStatus.x
+      # Multiply parameter values by scales to get equivalent of function val
       binResults = numpy.multiply([Decimal(val) for val in paramResults],self.scaleParsBy)
+      # ... and now by bin width to get equivalent of bin content.
+      binResults = numpy.multiply(binResults,self.selectedbinwidths)
+      nominalBinResults = numpy.multiply(self.result,self.selectedbinwidths)
       self.lastUncertaintyFitStatuses.append(thisStatus.status)
       index = -1
-      for value in binResults :
+      for newval, originalval in zip(binResults,nominalBinResults) :
         index = index+1
-        binArrays[index].append(value)
+        binArrays[index].append(newval - originalval)
 
     variances = []
     self.lastUncertaintyBinContents = []
     for bin in range(len(self.result)) :
       vec = numpy.array(binArrays[bin])
       self.lastUncertaintyBinContents.append(vec)
-      variances.append(numpy.sqrt(numpy.vdot(vec, vec)/vec.size))
+
+      mean = numpy.mean(vec)
+      x2 = 0
+      for input in vec :
+        x2 = x2 + (input-mean)*(input-mean)
+      variances.append(numpy.sqrt(x2/len(vec)))
 
     return variances
 

@@ -138,7 +138,7 @@ class RunFitter :
     outputFile = ROOT.TFile(self.outputFileName,"RECREATE")
     outputFile.cd()
 
-    self.myFitter.nPEs = 100
+    self.myFitter.nPEs = 15
     result = self.myFitter.fit(wInput,self.binLow,self.binHigh,errType = "Bootstrap")
     result.SetDirectory(0)
     result.SetName("result")
