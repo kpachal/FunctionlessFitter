@@ -70,23 +70,14 @@ class RunFitter :
     self.hist.SetDirectory(0)
     self.infile.Close()
 
-<<<<<<< HEAD
     self.binLow = self.hist.FindBin(444)
     self.binHigh = -1
-=======
-    self.binLow = self.hist.FindBin(395)
-    self.binHigh = self.hist.FindBin(2500)
->>>>>>> 04bd3979fea7f0c74da745c2cd9b3b1fe2aa1ff1
 
-#    self.myFitter.derivativeConstraints = {0:-1, 1:1, 2:-1, 3:1}
-    self.myFitter.derivativeConstraints = {0:-1, 1:1, 2:-1}
+    self.myFitter.derivativeConstraints = {0:-1, 1:1, 2:-1, 3:1}
+    #self.myFitter.derivativeConstraints = {0:-1, 1:1, 2:-1}
 
     self.myFitter.flatStartVal = 1.0
-<<<<<<< HEAD
-=======
-    #self.myFitter.flatStartVal = 5E4
->>>>>>> 04bd3979fea7f0c74da745c2cd9b3b1fe2aa1ff1
-    
+
     self.outputFileName = "results/test/outputfile_testStartParamStability_TLAFull.root"
 
   def setICHEPValues(self) :
