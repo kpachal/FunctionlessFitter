@@ -3,6 +3,7 @@ import os
 import ROOT
 import scipy
 from decimal import *
+import argparse
 
 from HistWrapper import WrappedHist
 from FunctionlessFitter import FunctionlessFitter
@@ -23,6 +24,21 @@ class RunFitter :
     #self.setTLAValues()
     self.setTLAFull()
     #self.setICHEPValues()
+
+    self.parseCommandLineArgs()
+
+    if self.args.dataset :
+      if self.args.dataset == "EOYE" :
+        self.setEOYEValues()
+      elif self.args.dataset == "TLA" :
+        self.setTLAValues()
+      elif self.args.dataset == "TLAFull" :
+        self.setTLAFull()
+      elif self.args.dataset == "ICHEP" :
+        self.setICHEPValues()
+      else :
+        print "Unrecognized dataset!"
+        return -1
 
   def setEOYEValues(self) :
 
@@ -55,11 +71,12 @@ class RunFitter :
     self.binLow = self.hist.FindBin(444)
     self.binHigh = self.hist.FindBin(1220) #1252
 
-    self.myFitter.derivativeConstraints = {0:-1, 1:1, 2:-1, 3:1}
+    self.myFitter.derivativeConstraints = {0:-1, 1:1, 2:-1, 3:1, 4:-1, 5:1, 6:-1, 7:1}
+    #self.myFitter.derivativeConstraints = {0:-1, 1:1, 2:-1, 3:1}
 
     self.myFitter.flatStartVal = 1.0
     
-    self.outputFileName = "results/test/outputfile_testStartParamStability_TLA.root"
+    self.outputFileName = "results/test/outputfile_testStartParamStability_TLA_upTo7.root"
 
   def setTLAFull(self) :
 
@@ -73,18 +90,18 @@ class RunFitter :
     self.binLow = self.hist.FindBin(444)
     self.binHigh = -1
 
-    self.myFitter.derivativeConstraints = {0:-1, 1:1, 2:-1, 3:1}
+    self.myFitter.derivativeConstraints = {0:-1, 1:1, 2:-1, 3:1, 4:-1, 5:1}
     #self.myFitter.derivativeConstraints = {0:-1, 1:1, 2:-1}
 
     self.myFitter.flatStartVal = 1.0
 
-    self.outputFileName = "results/test/outputfile_testStartParamStability_TLAFull.root"
+    self.outputFileName = "results/test/outputfile_testStartParamStability_TLAFull_upTo5.root"
 
   def setICHEPValues(self) :
 
     # Get a histogram we want to fit. I'll use dijets EOYE.
     self.infile = ROOT.TFile("samples/dataLikeHistograms.2016_DS2p1_Resonance_Fixed.root")
-    self.nominalFitFile = ROOT.TFile("samples/SearchResultData_UA2_fullDataset_yStar0p3_from394_permitWindow.root","READ")
+    self.nominalFitFile = ROOT.TFile("samples/Step1_SearchPhase_mjj_Data_2016_15p7fb.root","READ")
     self.hist = self.infile.Get("Nominal/mjj_Data_2016_15p7fb")
     self.hist.SetDirectory(0)
     self.infile.Close()
@@ -102,10 +119,8 @@ class RunFitter :
 
     wInput = WrappedHist(self.hist)
 
-    # Define various start values.
-    startVals = ["exp"]#,"exp","dataP5"]#["dataP5"]#,"exp","flat","linear","prelimFit"]
     # Working: "data","linear","prelimFit"
-    startVals = ["linear"]#["data"]#,"dataP5","exp","flat","linear","prelimFit"]
+    startVals = ["data"]#,"dataP5","exp","flat","linear","prelimFit"]
     
     # Make a bump hunter
     bumpHunter = BumpHunter()
@@ -159,6 +174,7 @@ class RunFitter :
       resultList.append(result)
 
       # Write everything to a file
+      self.hist.Write("data")
       result.Write()
     
       # Get the residual of the hist
@@ -167,34 +183,6 @@ class RunFitter :
       residual.SetName("residual_"+valType)
       residual.SetTitle("residual_"+valType)
       residual.Write()
-    
-#      # Examine constraints and how result fulfilled them.
-#      constraintList = self.myFitter.getDerivativeConstraints(2,-1)
-#      equations = self.myFitter.eqDict
-#      index = -1
-#      testPars = [1.0]*63
-#      testPars[58] = 1000.0
-#      testPars[59] = 100.0
-#      testPars[60] = 10.0
-#      testPars[61] = 1.0
-#      testPars = self.myFitter.getStartVals_linear()
-#      for tconstraint in constraintList :
-        #print "Beginning new constraint."
-        #index = index+1
-        #for test in range(len(equations[index]['jac'])) :
-        #  if equations[index]['jac'][test] != 0 :
-        #    print test,":",testPars[test],
-        #print "\n",tconstraint["fun"](self.myFitter.result)
-        #print tconstraint["fun"](testPars)
-        #print equations[index]['eq']
-        #print constraint["fun"](self.myFitter.result)
-        #code = "tryhere = lambda pars: {0}".format(equations[index]['eq'])
-        #exec code
-        #myversion = tryhere(testPars)
-        #print tryhere(self.myFitter.result)
-        #print "my version:",myversion
-
-        #print "\n",constraint["jac"](self.myFitter.result)
 
     # Compare to nominal fit result from the old code, if available
     if self.nominalFitFile :
@@ -207,6 +195,11 @@ class RunFitter :
     outputFile.Close()
     print "Made file",self.outputFileName
 
+  def parseCommandLineArgs(self) :
+  
+    parser = argparse.ArgumentParser(description='Specify config and overwrite values if desired.')
+    parser.add_argument('--dataset')
+    self.args = parser.parse_args()
 
 if __name__ == "__main__":
 
