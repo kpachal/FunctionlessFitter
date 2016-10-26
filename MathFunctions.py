@@ -17,6 +17,7 @@ def computeDividedDifferences(degree,selectedbinxvals,selectedbinedges,scalePars
 
     # 0th degree Jacobian matrix
     baseJac = numpy.identity(len(selectedbinxvals),dtype=Decimal)*scaleParsBy
+    jacobianDatabase[0] = baseJac
 
     # higher order derivatives and jacobians
     for order in range(1,degree+1) :
@@ -39,15 +40,14 @@ def computeDividedDifferences(degree,selectedbinxvals,selectedbinedges,scalePars
         # However, counting from bin = index, so don't need the 1.
         relevantbina = index+int(order/2)
         relevantbinb = index+int(order/2)+1
-        if order%2==0 :
-          xa = selectedbinxvals[relevantbina]
-          xb = selectedbinxvals[relevantbinb]
-        else :
-          xa = selectedbinedges[relevantbina]
-          xb = selectedbinedges[relevantbinb]
-          
-        diff = "({1}-{0})/({3}-{2})".format(fxa, fxb, "Decimal({0})".format(selectedbinxvals[index]),"Decimal({0})".format(selectedbinxvals[index+order]))
-        #diff = "({1}-{0})/({3}-{2})".format(fxa, fxb, "Decimal({0})".format(xa),"Decimal({0})".format(xb))
+        #if order%2==0 :
+        xa = selectedbinxvals[relevantbina]
+        xb = selectedbinxvals[relevantbinb]
+        #else :
+#        xa = selectedbinedges[relevantbina]
+#        xb = selectedbinedges[relevantbinb]
+
+        diff = "({1}-{0})/({3}-{2})".format(fxa, fxb, "Decimal({0})".format(xa),"Decimal({0})".format(xb))
         thisorderdict[index] = diff
 
         jacRow = []

@@ -81,8 +81,8 @@ class RunFitter :
     #self.outputFileName = "results/test/outputfile_2ndOrderConstraint.root"
     self.outputFileName = "results/test/outputfile_3rdOrderConstraint.root"
 
-    self.firstVal = 1150#1100
-    self.lastVal = 1300#7000
+    self.firstVal = 1100
+    self.lastVal = 7000
 
     if self.firstVal < self.lowestVal :
       self.lowestVal = self.firstVal
@@ -205,11 +205,11 @@ class RunFitter :
     nominalFit = self.nominalFitFile.Get("basicBkgFrom4ParamFit")
     nominalFit.SetDirectory(0)
     wNominal = WrappedHist(nominalFit)
-    wNominal.graphUpToNthDerivatives(2)
+    wNominal.graphUpToNthDerivatives(4)
     firstDerNom = wNominal.der1
     secondDerNom = wNominal.der2
-#    thirdDerNom = wNominal.der3
-#    fourthDerNom = wNominal.der4
+    thirdDerNom = wNominal.der3
+    fourthDerNom = wNominal.der4
 #    fifthDerNom = wNominal.der5
 #    sixthDerNom = wNominal.der6
 #    seventhDerNom = wNominal.der7
@@ -247,7 +247,7 @@ class RunFitter :
     reproducedResidual = getResidual(self.hist,nominalFit,self.binLow,self.binHigh)
 
     # Make plots overlaying fit derivatives from func on those from histograms
-    for thishist, thisname in [[firstDerNom,"firstDerivative"],[secondDerNom,"secondDerivative"]] : #,[thirdDerNom,"thirdDerivative"],[fourthDerNom,"fourthDerivative"],[fifthDerNom,"fifthDerivative"],[sixthDerNom,"sixthDerivative"],[seventhDerNom,"seventhDerivative"]] :
+    for thishist, thisname in [[firstDerNom,"firstDerivative"],[secondDerNom,"secondDerivative"],[thirdDerNom,"thirdDerivative"],[fourthDerNom,"fourthDerivative"],[fifthDerNom,"fifthDerivative"],[sixthDerNom,"sixthDerivative"],[seventhDerNom,"seventhDerivative"]] :
       self.myPainter.drawBasicFunction([self.derivativeFuncs[name][thisname+"FromTF1"],thishist], self.firstVal, self.lastVal,"m_{jj}","Value","plotting/plots/testGlobalFitBehaviours/funcOnHist_"+thisname+"_"+name,legendlines = ["analytical","approximate"],ylow=self.derivativeFuncs[name][thisname+"FromTF1"].GetMinimum(),yhigh=self.derivativeFuncs[name][thisname+"FromTF1"].GetMaximum(), makeCanvas=True,doLogY=False,doLogX=True,lineColour = ROOT.kCyan+2,doRectangular = False)
 
     # Write everything to a file
@@ -263,8 +263,8 @@ class RunFitter :
 #    fourthDerivative.Write("fourthDerivative")
     firstDerNom.Write("firstDer_nominalFit")
     secondDerNom.Write("secondDer_nominalFit")
-#    thirdDerNom.Write("thirdDer_nominalFit")
-#    fourthDerNom.Write("fourthDer_nominalFit")
+    thirdDerNom.Write("thirdDer_nominalFit")
+    fourthDerNom.Write("fourthDer_nominalFit")
 #    fifthDerNom.Write("fifthDer_nominalFit")
 #    sixthDerNom.Write("sixthDer_nominalFit")
 #    seventhDerNom.Write("seventhDer_nominalFit")

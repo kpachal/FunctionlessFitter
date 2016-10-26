@@ -39,13 +39,23 @@ class WrappedHist() :
     self.lastBinWithData = lastBin
     return
 
-  def recordBinXValsWidths(self,type) :
+  def recordBinXValsWidths(self,type,slope=-1) :
     self.binxvals = []
     for bin in range(self.histogram.GetNbinsX()+2) :
       if type=="central" :
         self.binxvals.append(Decimal(self.histogram.GetBinCenter(bin)))
       elif type=="exp" :
         print "exp"
+        xlow = self.histogram.GetBinLowEdge(bin)
+        xhigh = self.histogram.GetBinWidth(bin)+xlow
+#        ylow =
+#        exp =
+      elif type=="linear" :
+        print "linear"
+        xlow = self.histogram.GetBinLowEdge(bin)
+        binwidth = self.histogram.GetBinWidth(bin)
+        if slope < 0 :
+          self.binxvals.append(Decimal(xlow+(1.0-1.0/numpy.sqrt(2.0))*binwidth))
       else :
         raise Exception( "Unrecognized bin center definition!" )
       self.binedges.append(Decimal(self.histogram.GetBinLowEdge(bin)))
