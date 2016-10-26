@@ -3,7 +3,7 @@ import numpy
 import scipy
 from decimal import *
 
-def computeDividedDifferences(degree,selectedbinxvals,scaleParsBy) :
+def computeDividedDifferences(degree,selectedbinxvals,selectedbinedges,scaleParsBy) :
 
     dividedDifferenceDatabase = {}
     jacobianDatabase = {}
@@ -14,11 +14,10 @@ def computeDividedDifferences(degree,selectedbinxvals,scaleParsBy) :
       baseDict[bin] = "Decimal(pars[{0}]*{1})".format(bin,scaleParsBy[bin])
       #baseDict[bin] = "(pars[{0}]*{1})".format(bin,self.scaleParsBy[bin])
     dividedDifferenceDatabase[0] = baseDict
-  
+
     # 0th degree Jacobian matrix
     baseJac = numpy.identity(len(selectedbinxvals),dtype=Decimal)*scaleParsBy
-    jacobianDatabase[0] = baseJac
-  
+
     # higher order derivatives and jacobians
     for order in range(1,degree+1) :
     
@@ -33,8 +32,22 @@ def computeDividedDifferences(degree,selectedbinxvals,scaleParsBy) :
         # Difference for the constraint itself
         fxa = lastorderdict[index]
         fxb = lastorderdict[index+1]
-        diff = "Decimal({1}-{0})/Decimal({3}-{2})".format(fxa, fxb, selectedbinxvals[index],selectedbinxvals[index+order])
-
+        # Number of bins = order+1
+        # So relevant bin = int(order/2)+1
+        # Even orders use bin centers,
+        # while odd orders use bin lower edge.
+        # However, counting from bin = index, so don't need the 1.
+        relevantbina = index+int(order/2)
+        relevantbinb = index+int(order/2)+1
+        if order%2==0 :
+          xa = selectedbinxvals[relevantbina]
+          xb = selectedbinxvals[relevantbinb]
+        else :
+          xa = selectedbinedges[relevantbina]
+          xb = selectedbinedges[relevantbinb]
+          
+        diff = "({1}-{0})/({3}-{2})".format(fxa, fxb, "Decimal({0})".format(selectedbinxvals[index]),"Decimal({0})".format(selectedbinxvals[index+order]))
+        #diff = "({1}-{0})/({3}-{2})".format(fxa, fxb, "Decimal({0})".format(xa),"Decimal({0})".format(xb))
         thisorderdict[index] = diff
 
         jacRow = []

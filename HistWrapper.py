@@ -13,6 +13,7 @@ class WrappedHist() :
     self.getHistOutermostBinsWithData()
     self.bincontents = []
     self.binxvals = []
+    self.binedges = []
     self.binwidths = []
     self.randomNumberGenerator = ROOT.TRandom3(seed)
     self.recordBinXValsWidths(binStructure)
@@ -47,6 +48,7 @@ class WrappedHist() :
         print "exp"
       else :
         raise Exception( "Unrecognized bin center definition!" )
+      self.binedges.append(Decimal(self.histogram.GetBinLowEdge(bin)))
       self.binwidths.append(Decimal(self.histogram.GetBinWidth(bin)))
       self.bincontents.append(Decimal(self.histogram.GetBinContent(bin)))
 
@@ -54,6 +56,7 @@ class WrappedHist() :
     selectedbincontents = []
     selectedbinxvals = []
     selectedbinwidths = []
+    selectedbinedges = []
     indexLow = -1
     indexHigh = -1
     self.scaleFactors = []
@@ -66,13 +69,14 @@ class WrappedHist() :
       self.scaleFactors.append(Decimal(scale))
 
       selectedbincontents.append(Decimal(self.histogram.GetBinContent(bin)))
-      selectedbinxvals.append(Decimal(self.binxvals[bin]))
+      selectedbinxvals.append(self.binxvals[bin])
       selectedbinwidths.append(Decimal(self.histogram.GetBinWidth(bin)))
+      selectedbinedges.append(Decimal(self.histogram.GetBinLowEdge(bin)))
       if bin == windowLow :
         indexLow = len(selectedbincontents)-1
       if bin == windowHigh :
         indexHigh = len(selectedbincontents)-1
-    return selectedbincontents,selectedbinxvals,selectedbinwidths,indexLow,indexHigh
+    return selectedbincontents,selectedbinxvals,selectedbinwidths,selectedbinedges,indexLow,indexHigh
 
   def poissonFluctuateBinByBin(self) :
 
@@ -99,7 +103,12 @@ class WrappedHist() :
     # scaleparsby = all 1's for representative result
     scaleparsby = MathFunctions.getFlatVector(len(self.binxvals),1.0)
     
-    dividedDifferenceDatabase, jacobianDatabase = MathFunctions.computeDividedDifferences(degree,self.binxvals,scaleparsby)
+    print "Passing in:"
+    print "[47]:",self.binxvals[47]
+    print "[48]:",self.binxvals[48]
+    print "[49]:",self.binxvals[49]
+    #print "[50]:",self.binxvals[50]
+    dividedDifferenceDatabase, jacobianDatabase = MathFunctions.computeDividedDifferences(degree,self.binxvals,self.binedges,scaleparsby)
     
     graphs = {}
     for order in range(1,degree+1) :
@@ -135,6 +144,12 @@ class WrappedHist() :
         # Parameters are equivalent of bin values divided by binxvals
         pars = numpy.divide(self.bincontents,self.binwidths)
         graphs[order].SetPoint(bin-1,xval,myfunc(pars))
+      
+        if order == 2 and self.histogram.FindBin(1300) == bin :
+          print "For computing the derivative at this point,"
+          print thisorderdict[bin]
+          print "Which for nominal pars gives",myfunc(pars)
+          print "And is being assigned to xvalue",xval
 
     for order in range(1,degree+1) :
       code = "self.der{0} = graphs[{0}]".format(order)

@@ -169,7 +169,7 @@ class FunctionlessFitter :
   def getDerivativeConstraints(self, degree, slope) :
 
     if int(degree) not in self.dividedDifferenceDatabase.keys() :
-      self.dividedDifferenceDatabase,self.jacobianDatabase = MathFunctions.computeDividedDifferences(degree,self.selectedbinxvals,self.scaleParsBy)
+      self.dividedDifferenceDatabase,self.jacobianDatabase = MathFunctions.computeDividedDifferences(degree,self.selectedbinxvals,self.selectedbinedges, self.scaleParsBy)
 
     constraints = []
     self.eqDict = {}
@@ -228,7 +228,7 @@ class FunctionlessFitter :
       self.rangeHigh = spectrum.lastBinWithData
     else : self.rangeHigh = lastBin
     
-    self.selectedbincontents, self.selectedbinxvals, self.selectedbinwidths, self.windowLow, self.windowHigh = spectrum.getSelectedBinInfo(self.rangeLow,self.rangeHigh,self.firstBinInWindow,self.lastBinInWindow)
+    self.selectedbincontents, self.selectedbinxvals, self.selectedbinwidths, self.selectedbinedges, self.windowLow, self.windowHigh = spectrum.getSelectedBinInfo(self.rangeLow,self.rangeHigh,self.firstBinInWindow,self.lastBinInWindow)
     self.scaleParsBy = spectrum.scaleFactors
     
     if self.startValFormat == "exp" :
@@ -269,7 +269,7 @@ class FunctionlessFitter :
 
     # Unscaled version
     self.scaleParsBy = MathFunctions.getFlatVector(len(self.selectedbinxvals),1.0)
-    self.dividedDifferenceDatabase,self.jacobianDatabase = MathFunctions.computeDividedDifferences(max(orders),self.selectedbinxvals,self.scaleParsBy)
+    self.dividedDifferenceDatabase,self.jacobianDatabase = MathFunctions.computeDividedDifferences(max(orders),self.selectedbinxvals,self.selectedbinedges, self.scaleParsBy)
     self.unscaledConstraints = []
     for order in orders :
       slope = self.derivativeConstraints[order]
@@ -277,7 +277,7 @@ class FunctionlessFitter :
 
     # Scaled version (default)
     self.scaleParsBy = spectrum.scaleFactors
-    self.dividedDifferenceDatabase,self.jacobianDatabase = MathFunctions.computeDividedDifferences(max(orders),self.selectedbinxvals,self.scaleParsBy)
+    self.dividedDifferenceDatabase,self.jacobianDatabase = MathFunctions.computeDividedDifferences(max(orders),self.selectedbinxvals,self.selectedbinedges, self.scaleParsBy)
     self.myConstraints = []
     print orders
     for order in orders :
@@ -532,7 +532,7 @@ class FunctionlessFitter :
       thisPE = nominalHistWrapper.poissonFluctuateBinByBin()
       PEWrapper = WrappedHist(thisPE)
       # Need to reset thing we run on to be contents of thisPE
-      self.selectedbincontents, self.selectedbinxvals, self.selectedbinwidths, self.windowLow, self.windowHigh = PEWrapper.getSelectedBinInfo(self.rangeLow,self.rangeHigh,self.firstBinInWindow,self.lastBinInWindow)
+      self.selectedbincontents, self.selectedbinxvals, self.selectedbinwidths, self.selectedbinedges, self.windowLow, self.windowHigh = PEWrapper.getSelectedBinInfo(self.rangeLow,self.rangeHigh,self.firstBinInWindow,self.lastBinInWindow)
       thisStatus = scipy.optimize.minimize(self.function, self.parameterVals, method=self.minAlg, jac=self.function_der, bounds=self.myBounds, constraints=self.myConstraints, options=options_dict)
       paramResults = thisStatus.x
       # Multiply parameter values by scales to get equivalent of function val

@@ -81,8 +81,8 @@ class RunFitter :
     #self.outputFileName = "results/test/outputfile_2ndOrderConstraint.root"
     self.outputFileName = "results/test/outputfile_3rdOrderConstraint.root"
 
-    self.firstVal = 1100
-    self.lastVal = 7000
+    self.firstVal = 1150#1100
+    self.lastVal = 1300#7000
 
     if self.firstVal < self.lowestVal :
       self.lowestVal = self.firstVal
@@ -169,7 +169,7 @@ class RunFitter :
     histForStartVals = self.hist.Clone()
     histForStartVals.SetName("histForStartVals")
     getStartVals = WrappedHist(histForStartVals)
-    fullVals, xvals, widths, w1, w2 = getStartVals.getSelectedBinInfo(self.binLow,self.binHigh)
+    fullVals, xvals, widths, edges, w1, w2 = getStartVals.getSelectedBinInfo(self.binLow,self.binHigh)
     index = -1
     startVals = []
     for item in fullVals :
@@ -283,9 +283,6 @@ class RunFitter :
     fifthDer = fourthDer.diff(x)
     sixthDer = fifthDer.diff(x)
     seventhDer = sixthDer.diff(x)
-
-    print "Analytically:"
-    print secondDer
     
 
     if not title in self.derivativeFuncs.keys() :
@@ -308,6 +305,10 @@ class RunFitter :
 
     tokens = title.split("_")
     self.derivativeFuncs[tokens[-1]][tokens[0]] = myFunc
+
+    if "second" in title :
+      print funcString
+      print "At 1300, value is",myFunc.Eval(1300)
 
     self.myPainter.drawBasicFunction(myFunc, vallow*0.8,valhigh*1.2,"m_{jj}","Value","plotting/plots/testGlobalFitBehaviours/"+title,makeCanvas=True,doLogY=False,doLogX=True,lineColour = ROOT.kCyan+2,doRectangular = False)
 

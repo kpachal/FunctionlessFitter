@@ -137,9 +137,9 @@ class RunFitter :
     startValHist.SetName("startValHist")
     getStartVals = WrappedHist(startValHist)
     if self.binHigh < 0 :
-      fullVals, xvals, widths, w1, w2 = wInput.getSelectedBinInfo(self.binLow,getStartVals.lastBinWithData)
+      fullVals, xvals, widths, edges, w1, w2 = wInput.getSelectedBinInfo(self.binLow,getStartVals.lastBinWithData)
     else :
-      fullVals, xvals, widths, w1, w2 = wInput.getSelectedBinInfo(self.binLow,self.binHigh)
+      fullVals, xvals, widths, edges, w1, w2 = wInput.getSelectedBinInfo(self.binLow,self.binHigh)
     index = -1
     for item in fullVals :
       index = index+1

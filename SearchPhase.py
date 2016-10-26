@@ -74,7 +74,7 @@ class RunSearchPhase :
       startVals = []
       self.histForStartVals.SetName("histForStartVals")
       getStartVals = WrappedHist(self.histForStartVals)
-      fullVals, xvals, widths, w1, w2 = getStartVals.getSelectedBinInfo(self.firstBinFit,self.lastBinFit)
+      fullVals, xvals, widths, edges, w1, w2 = getStartVals.getSelectedBinInfo(self.firstBinFit,self.lastBinFit)
       index = -1
       for item in fullVals :
         index = index+1
