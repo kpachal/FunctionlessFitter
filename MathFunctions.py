@@ -1,6 +1,57 @@
 import ROOT
 import numpy
 import scipy
+from decimal import *
+
+def computeDividedDifferences(degree,selectedbinxvals,scaleParsBy) :
+
+    dividedDifferenceDatabase = {}
+    jacobianDatabase = {}
+
+    # 0th degree derivatives
+    baseDict = {}
+    for bin in range(len(selectedbinxvals)) :
+      baseDict[bin] = "Decimal(pars[{0}]*{1})".format(bin,scaleParsBy[bin])
+      #baseDict[bin] = "(pars[{0}]*{1})".format(bin,self.scaleParsBy[bin])
+    dividedDifferenceDatabase[0] = baseDict
+  
+    # 0th degree Jacobian matrix
+    baseJac = numpy.identity(len(selectedbinxvals),dtype=Decimal)*scaleParsBy
+    jacobianDatabase[0] = baseJac
+  
+    # higher order derivatives and jacobians
+    for order in range(1,degree+1) :
+    
+      lastorderdict = dividedDifferenceDatabase[int(order-1)]
+      thisorderdict = {}
+ 
+      # Matrix to multiply into current jacobian terms
+      A = []
+
+      for index in range(len(selectedbinxvals) - order) :
+      
+        # Difference for the constraint itself
+        fxa = lastorderdict[index]
+        fxb = lastorderdict[index+1]
+        diff = "Decimal({1}-{0})/Decimal({3}-{2})".format(fxa, fxb, selectedbinxvals[index],selectedbinxvals[index+order])
+
+        thisorderdict[index] = diff
+
+        jacRow = []
+        for column in range(len(selectedbinxvals) - order+1) :
+          val = selectedbinxvals[index+order] - selectedbinxvals[index]
+          if column == index :
+            jacRow.append(Decimal(-1.0)/val)
+          elif column == index+1 :
+            jacRow.append(Decimal(1.0)/val)
+          else :
+            jacRow.append(Decimal(0.0))
+        A.append(jacRow)
+
+      dividedDifferenceDatabase[int(order)] = thisorderdict
+      jacobianDatabase[int(order)] = numpy.dot(A,jacobianDatabase[int(order)-1])
+
+    return dividedDifferenceDatabase,jacobianDatabase
 
 def poissonPVal(data, bkg) :
 
@@ -73,3 +124,6 @@ def getPValFromVecAndStat(stat,vector) :
 
   pVal = float(len(vector)-nBelow)/float(len(vector))
   return pVal
+
+def getFlatVector(length, val) :
+    return [Decimal(val)]*length

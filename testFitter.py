@@ -6,6 +6,7 @@ from sympy import *
 from art.morisot import Morisot
 import numpy
 
+import MathFunctions
 from HistWrapper import WrappedHist
 from FunctionlessFitter import FunctionlessFitter
 from SignificanceTests import getResidual
@@ -204,14 +205,14 @@ class RunFitter :
     nominalFit = self.nominalFitFile.Get("basicBkgFrom4ParamFit")
     nominalFit.SetDirectory(0)
     wNominal = WrappedHist(nominalFit)
-    wNominal.graphUpToNthDerivatives(7)
+    wNominal.graphUpToNthDerivatives(2)
     firstDerNom = wNominal.der1
     secondDerNom = wNominal.der2
-    thirdDerNom = wNominal.der3
-    fourthDerNom = wNominal.der4
-    fifthDerNom = wNominal.der5
-    sixthDerNom = wNominal.der6
-    seventhDerNom = wNominal.der7
+#    thirdDerNom = wNominal.der3
+#    fourthDerNom = wNominal.der4
+#    fifthDerNom = wNominal.der5
+#    sixthDerNom = wNominal.der6
+#    seventhDerNom = wNominal.der7
 
 #    # Bump hunt with the old fit
 #    bhStatNom = bumpHunter.doTest(wInput, wNominal, self.binLow,self.binHigh)
@@ -246,8 +247,8 @@ class RunFitter :
     reproducedResidual = getResidual(self.hist,nominalFit,self.binLow,self.binHigh)
 
     # Make plots overlaying fit derivatives from func on those from histograms
-    for thishist, thisname in [[firstDerNom,"firstDerivative"],[secondDerNom,"secondDerivative"],[thirdDerNom,"thirdDerivative"],[fourthDerNom,"fourthDerivative"],[fifthDerNom,"fifthDerivative"],[sixthDerNom,"sixthDerivative"],[seventhDerNom,"seventhDerivative"]] :
-      self.myPainter.drawBasicFunction([thishist,self.derivativeFuncs[name][thisname+"FromTF1"]], self.firstVal, self.lastVal,"m_{jj}","Value","plotting/plots/testGlobalFitBehaviours/funcOnHist_"+thisname+"_"+name,legendlines = ["approximate","analytical"],makeCanvas=True,doLogY=False,doLogX=True,lineColour = ROOT.kCyan+2,doRectangular = False)
+    for thishist, thisname in [[firstDerNom,"firstDerivative"],[secondDerNom,"secondDerivative"]] : #,[thirdDerNom,"thirdDerivative"],[fourthDerNom,"fourthDerivative"],[fifthDerNom,"fifthDerivative"],[sixthDerNom,"sixthDerivative"],[seventhDerNom,"seventhDerivative"]] :
+      self.myPainter.drawBasicFunction([self.derivativeFuncs[name][thisname+"FromTF1"],thishist], self.firstVal, self.lastVal,"m_{jj}","Value","plotting/plots/testGlobalFitBehaviours/funcOnHist_"+thisname+"_"+name,legendlines = ["analytical","approximate"],ylow=self.derivativeFuncs[name][thisname+"FromTF1"].GetMinimum(),yhigh=self.derivativeFuncs[name][thisname+"FromTF1"].GetMaximum(), makeCanvas=True,doLogY=False,doLogX=True,lineColour = ROOT.kCyan+2,doRectangular = False)
 
     # Write everything to a file
     print "Making file",self.outputFileName
@@ -262,7 +263,11 @@ class RunFitter :
 #    fourthDerivative.Write("fourthDerivative")
     firstDerNom.Write("firstDer_nominalFit")
     secondDerNom.Write("secondDer_nominalFit")
-    thirdDerNom.Write("thirdDer_nominalFit")
+#    thirdDerNom.Write("thirdDer_nominalFit")
+#    fourthDerNom.Write("fourthDer_nominalFit")
+#    fifthDerNom.Write("fifthDer_nominalFit")
+#    sixthDerNom.Write("sixthDer_nominalFit")
+#    seventhDerNom.Write("seventhDer_nominalFit")
     nominalResidual.Write("residual_nominalFit")
     reproducedResidual.Write("residual_nominalFit_myfunc")
     for handle, func in self.derivativeFuncs[name].iteritems() :
@@ -278,6 +283,10 @@ class RunFitter :
     fifthDer = fourthDer.diff(x)
     sixthDer = fifthDer.diff(x)
     seventhDer = sixthDer.diff(x)
+
+    print "Analytically:"
+    print secondDer
+    
 
     if not title in self.derivativeFuncs.keys() :
       self.derivativeFuncs[title] = {}
@@ -306,11 +315,11 @@ class RunFitter :
 if __name__ == "__main__":
 
   fitter = RunFitter()
-  for result in ["EOYE","TLA","ICHEP"] :
+  for result in ["EOYE"] : #,"TLA","ICHEP"] :
     fitter.setValues(result)
     fitter.executeFit(result)
 
-  for order in fitter.derivativeFuncs["TLA"].keys() :
+  for order in fitter.derivativeFuncs["EOYE"].keys() :
     functions = []
     for result in fitter.derivativeFuncs.keys() :
       functions.append(fitter.derivativeFuncs[result][order])

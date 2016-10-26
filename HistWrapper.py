@@ -2,6 +2,7 @@ import ROOT
 import numpy
 from decimal import *
 getcontext().prec = 28
+import MathFunctions
 
 class WrappedHist() :
 
@@ -12,8 +13,9 @@ class WrappedHist() :
     self.getHistOutermostBinsWithData()
     self.bincontents = []
     self.binxvals = []
+    self.binwidths = []
     self.randomNumberGenerator = ROOT.TRandom3(seed)
-    self.recordBinXVals(binStructure)
+    self.recordBinXValsWidths(binStructure)
 
     return
 
@@ -36,15 +38,17 @@ class WrappedHist() :
     self.lastBinWithData = lastBin
     return
 
-  def recordBinXVals(self,type) :
+  def recordBinXValsWidths(self,type) :
     self.binxvals = []
     for bin in range(self.histogram.GetNbinsX()+2) :
       if type=="central" :
-        self.binxvals.append(self.histogram.GetBinCenter(bin))
+        self.binxvals.append(Decimal(self.histogram.GetBinCenter(bin)))
       elif type=="exp" :
         print "exp"
       else :
         raise Exception( "Unrecognized bin center definition!" )
+      self.binwidths.append(Decimal(self.histogram.GetBinWidth(bin)))
+      self.bincontents.append(Decimal(self.histogram.GetBinContent(bin)))
 
   def getSelectedBinInfo(self,rangeLow,rangeHigh,windowLow=-1,windowHigh=-1) :
     selectedbincontents = []
@@ -91,6 +95,12 @@ class WrappedHist() :
 
   def graphUpToNthDerivatives(self,degree) :
     
+    # selectedbinvals = self.binxvals
+    # scaleparsby = all 1's for representative result
+    scaleparsby = MathFunctions.getFlatVector(len(self.binxvals),1.0)
+    
+    dividedDifferenceDatabase, jacobianDatabase = MathFunctions.computeDividedDifferences(degree,self.binxvals,scaleparsby)
+    
     graphs = {}
     for order in range(1,degree+1) :
       graph = ROOT.TGraph()
@@ -106,23 +116,11 @@ class WrappedHist() :
       graph.SetName(name)
       graphs[order] = graph
 
-    dividedDifferenceDatabase = {}
-    
-    # 0th degree
-    baseDict = {}
-    for bin in range(len(self.binxvals)) :
-      baseDict[bin] = self.histogram.GetBinContent(bin)/self.histogram.GetBinWidth(bin)
-    dividedDifferenceDatabase[0] = baseDict
-
     for order in range(1,degree+1) :
 
-      lastorderdict = dividedDifferenceDatabase[int(order-1)]
-      thisorderdict = {}
+      thisorderdict = dividedDifferenceDatabase[int(order)]
 
-      for bin in range(self.histogram.GetNbinsX()+2 - order) :
-        fxa = lastorderdict[bin]
-        fxb = lastorderdict[bin+1]
-        diff = (fxb - fxa)/(self.binxvals[bin+order]-self.binxvals[bin])
+      for bin in range(1,self.histogram.GetNbinsX()+1 - order) :
         
         # Bins used range from bin to bin+degree inclusive.
         # Even orders use center of middle bin
@@ -132,10 +130,11 @@ class WrappedHist() :
         else :
           xval = self.histogram.GetBinLowEdge(bin+int(numpy.ceil(float(order)/2.0)))
 
-        thisorderdict[bin] = diff
-        graphs[order].SetPoint(bin,xval,diff)
-
-      dividedDifferenceDatabase[int(order)] = thisorderdict
+        code = """myfunc = lambda pars : {0}""".format(thisorderdict[bin])
+        exec code
+        # Parameters are equivalent of bin values divided by binxvals
+        pars = numpy.divide(self.bincontents,self.binwidths)
+        graphs[order].SetPoint(bin-1,xval,myfunc(pars))
 
     for order in range(1,degree+1) :
       code = "self.der{0} = graphs[{0}]".format(order)

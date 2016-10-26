@@ -8,6 +8,7 @@ from fractions import *
 from decimal import *
 getcontext().prec = 28
 from numbers import *
+import MathFunctions
 
 class FunctionlessFitter :
 
@@ -71,9 +72,6 @@ class FunctionlessFitter :
       raise ValueError("Unrecognized minimization algorithm!\nPlease use one of 'SLSQP','COBYLA'")
 
     return options
-
-  def getFlatVector(self, length, val) :
-    return [Decimal(val)]*length
 
   def function(self,pars) :
 
@@ -168,55 +166,10 @@ class FunctionlessFitter :
         start_vals.append(y)
     return start_vals
   
-  def computeConstraints(self,degree) :
-
-    # 0th degree derivatives
-    baseDict = {}
-    for bin in range(len(self.selectedbinxvals)) :
-      baseDict[bin] = "Decimal(pars[{0}]*{1})".format(bin,self.scaleParsBy[bin])
-      #baseDict[bin] = "(pars[{0}]*{1})".format(bin,self.scaleParsBy[bin])
-    self.dividedDifferenceDatabase[0] = baseDict
-  
-    # 0th degree Jacobian matrix
-    baseJac = numpy.identity(len(self.selectedbinxvals),dtype=Decimal)*self.scaleParsBy
-    self.jacobianDatabase[0] = baseJac
-  
-    # higher order derivatives and jacobians
-    for order in range(1,degree+1) :
-    
-      lastorderdict = self.dividedDifferenceDatabase[int(order-1)]
-      thisorderdict = {}
- 
-      # Matrix to multiply into current jacobian terms
-      A = []
-
-      for index in range(len(self.selectedbinxvals) - order) :
-      
-        # Difference for the constraint itself
-        fxa = lastorderdict[index]
-        fxb = lastorderdict[index+1]
-        diff = "Decimal({1}-{0})/Decimal({3}-{2})".format(fxa, fxb, self.selectedbinxvals[index],self.selectedbinxvals[index+order])
-
-        thisorderdict[index] = diff
-
-        jacRow = []
-        for column in range(len(self.selectedbinxvals) - order+1) :
-          val = self.selectedbinxvals[index+order] - self.selectedbinxvals[index]
-          if column == index :
-            jacRow.append(Decimal(-1.0)/val)
-          elif column == index+1 :
-            jacRow.append(Decimal(1.0)/val)
-          else :
-            jacRow.append(Decimal(0.0))
-        A.append(jacRow)
-
-      self.dividedDifferenceDatabase[int(order)] = thisorderdict
-      self.jacobianDatabase[int(order)] = numpy.dot(A,self.jacobianDatabase[int(order)-1])
-
   def getDerivativeConstraints(self, degree, slope) :
 
     if int(degree) not in self.dividedDifferenceDatabase.keys() :
-      self.computeConstraints(degree)
+      self.dividedDifferenceDatabase,self.jacobianDatabase = MathFunctions.computeDividedDifferences(degree,self.selectedbinxvals,self.scaleParsBy)
 
     constraints = []
     self.eqDict = {}
@@ -236,14 +189,12 @@ class FunctionlessFitter :
 #      minScale = min(relevantScales)
 #      newScales = [x/minScale for x in relevantScales]
 
-      #eqString = "["
       eqString = ""
       if slope < 0 : eqString = eqString + " - "
       eqString = eqString + term2
       if slope < 0 : eqString = eqString + " + "
       else : eqString = eqString + " - "
       eqString = eqString + term1
-      #eqString = eqString + "]"
     
       # Implement scaling of eqString to new lowest common denominators
 #      for subindex in relevantIndices :
@@ -317,8 +268,8 @@ class FunctionlessFitter :
     orders = self.derivativeConstraints.keys()
 
     # Unscaled version
-    self.scaleParsBy = self.getFlatVector(len(self.selectedbinxvals),1.0)
-    self.computeConstraints(max(orders))
+    self.scaleParsBy = MathFunctions.getFlatVector(len(self.selectedbinxvals),1.0)
+    self.dividedDifferenceDatabase,self.jacobianDatabase = MathFunctions.computeDividedDifferences(max(orders),self.selectedbinxvals,self.scaleParsBy)
     self.unscaledConstraints = []
     for order in orders :
       slope = self.derivativeConstraints[order]
@@ -326,7 +277,7 @@ class FunctionlessFitter :
 
     # Scaled version (default)
     self.scaleParsBy = spectrum.scaleFactors
-    self.computeConstraints(max(orders))
+    self.dividedDifferenceDatabase,self.jacobianDatabase = MathFunctions.computeDividedDifferences(max(orders),self.selectedbinxvals,self.scaleParsBy)
     self.myConstraints = []
     print orders
     for order in orders :
@@ -348,7 +299,7 @@ class FunctionlessFitter :
       # parameter space thoroughly. Use unscaled parameters.
       print "Beginning input value smoothing"
       print "We are starting from unscaled parameters."
-      self.scaleParsBy = self.getFlatVector(len(self.selectedbinxvals),1.0)
+      self.scaleParsBy = MathFunctions.getFlatVector(len(self.selectedbinxvals),1.0)
       print "start_vals_unscaled are:",start_vals_unscaled
       if debug :
         status = scipy.optimize.minimize(self.function, start_vals_unscaled, method='COBYLA', options=looseOpts)
@@ -367,7 +318,7 @@ class FunctionlessFitter :
 
     #updated_start_vals = numpy.divide([Decimal(val) for val in start_vals_unscaled],spectrum.scaleFactors)
 
-    self.scaleParsBy = self.getFlatVector(len(self.selectedbinxvals),1.0)
+    self.scaleParsBy = MathFunctions.getFlatVector(len(self.selectedbinxvals),1.0)
     print "Beginning simple fit."
     print "start_val_unscaled are:",start_vals_unscaled
     if debug :
