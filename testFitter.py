@@ -59,6 +59,8 @@ class RunFitter :
       self.setICHEPValues()
     elif string == "EOYE" :
       self.setEOYEValues()
+    elif string == "TEST" :
+      self.setTestValues()
     else :
       print "Unrecognized request for start values!"
       return
@@ -159,6 +161,41 @@ class RunFitter :
     # Four par is:
     # y = par0*((1-x/13000.0)**par1)*1.0/((x/13000.0)**(par2 + par3*log(x/13000.0)))
 
+  def setTestValues(self) :
+  
+    print "Setting test values!"
+
+    # Get a histogram we want to fit. I'll use dijets EOYE.
+    self.infile = ROOT.TFile("samples/toyTinyHists.root")
+    self.nominalFitFile = ROOT.TFile("samples/toyTinyHists.root","READ")
+    self.hist = self.infile.Get("newHist_varyingBins")
+    self.hist.SetDirectory(0)
+    parvec = self.nominalFitFile.Get("fittedParameters")
+    par0 = parvec[0]
+    par1 = parvec[1]
+    par2 = parvec[2]
+
+    self.infile.Close()
+
+    self.firstVal = 4370
+    self.lastVal = 4641
+
+    if self.firstVal < self.lowestVal :
+      self.lowestVal = self.firstVal
+    if self.lastVal > self.highestVal :
+      self.highestVal = self.lastVal
+    self.binLow = self.hist.FindBin(self.firstVal)
+    self.binHigh = -1
+
+    self.outputFileName = "results/test/outputfile_TEST.root"
+  
+    x = Symbol('x')
+    y = par0*((1-x/13000.0)**par1)*((x/13000.0)**par2)
+    self.plotFunction(y, x, self.firstVal, self.lastVal, "TEST")
+    # Four par is:
+    # y = par0*((1-x/13000.0)**par1)*1.0/((x/13000.0)**(par2 + par3*log(x/13000.0)))
+
+
   def executeFit(self,name) :
 
     wInput = WrappedHist(self.hist)
@@ -247,7 +284,7 @@ class RunFitter :
     reproducedResidual = getResidual(self.hist,nominalFit,self.binLow,self.binHigh)
 
     # Make plots overlaying fit derivatives from func on those from histograms
-    for thishist, thisname in [[firstDerNom,"firstDerivative"],[secondDerNom,"secondDerivative"],[thirdDerNom,"thirdDerivative"],[fourthDerNom,"fourthDerivative"],[fifthDerNom,"fifthDerivative"],[sixthDerNom,"sixthDerivative"],[seventhDerNom,"seventhDerivative"]] :
+    for thishist, thisname in [[firstDerNom,"firstDerivative"],[secondDerNom,"secondDerivative"],[thirdDerNom,"thirdDerivative"],[fourthDerNom,"fourthDerivative"]] : #,[fifthDerNom,"fifthDerivative"],[sixthDerNom,"sixthDerivative"],[seventhDerNom,"seventhDerivative"]] :
       self.myPainter.drawBasicFunction([self.derivativeFuncs[name][thisname+"FromTF1"],thishist], self.firstVal, self.lastVal,"m_{jj}","Value","plotting/plots/testGlobalFitBehaviours/funcOnHist_"+thisname+"_"+name,legendlines = ["analytical","approximate"],ylow=self.derivativeFuncs[name][thisname+"FromTF1"].GetMinimum(),yhigh=self.derivativeFuncs[name][thisname+"FromTF1"].GetMaximum(), makeCanvas=True,doLogY=False,doLogX=True,lineColour = ROOT.kCyan+2,doRectangular = False)
 
     # Write everything to a file
@@ -268,8 +305,8 @@ class RunFitter :
 #    fifthDerNom.Write("fifthDer_nominalFit")
 #    sixthDerNom.Write("sixthDer_nominalFit")
 #    seventhDerNom.Write("seventhDer_nominalFit")
-    nominalResidual.Write("residual_nominalFit")
-    reproducedResidual.Write("residual_nominalFit_myfunc")
+#    nominalResidual.Write("residual_nominalFit")
+#    reproducedResidual.Write("residual_nominalFit_myfunc")
     for handle, func in self.derivativeFuncs[name].iteritems() :
       func.Write()
     outputFile.Close()
@@ -316,11 +353,13 @@ class RunFitter :
 if __name__ == "__main__":
 
   fitter = RunFitter()
-  for result in ["EOYE"] : #,"TLA","ICHEP"] :
+  #for result in ["EOYE"] :
+  for result in ["TEST"] : #,"TLA","ICHEP"] :
     fitter.setValues(result)
     fitter.executeFit(result)
 
-  for order in fitter.derivativeFuncs["EOYE"].keys() :
+  for order in fitter.derivativeFuncs["TEST"].keys() :
+  #for order in fitter.derivativeFuncs["EOYE"].keys() :
     functions = []
     for result in fitter.derivativeFuncs.keys() :
       functions.append(fitter.derivativeFuncs[result][order])

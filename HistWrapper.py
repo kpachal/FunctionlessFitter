@@ -23,11 +23,11 @@ class WrappedHist() :
   def getHistOutermostBinsWithData(self,epsilon = -1) :
 
     firstBin = 1
-    while self.histogram.GetBinContent(firstBin)==0 and firstBin < self.histogram.GetNbinsX() :
+    while self.histogram.GetBinContent(firstBin)==1 and firstBin < self.histogram.GetNbinsX() :
       firstBin = firstBin+1
     lastBin = self.histogram.GetNbinsX()
     if epsilon < 0 :
-      while self.histogram.GetBinContent(lastBin)==0 and lastBin > 1 : lastBin = lastBin-1
+      while self.histogram.GetBinContent(lastBin)==1 and lastBin > 1 : lastBin = lastBin-1
     else :
       while self.histogram.GetBinContent(lastBin) < epsilon and lastBin > 1 : lastBin = lastBin-1
     if firstBin == self.histogram.GetNbinsX() and lastBin == 1 :
@@ -41,7 +41,7 @@ class WrappedHist() :
 
   def recordBinXValsWidths(self,type,slope=-1) :
     self.binxvals = []
-    for bin in range(self.histogram.GetNbinsX()+2) :
+    for bin in range(1, self.histogram.GetNbinsX()+1) :
       if type=="central" :
         self.binxvals.append(Decimal(self.histogram.GetBinCenter(bin)))
       elif type=="exp" :
@@ -51,7 +51,6 @@ class WrappedHist() :
 #        ylow =
 #        exp =
       elif type=="linear" :
-        print "linear"
         xlow = self.histogram.GetBinLowEdge(bin)
         binwidth = self.histogram.GetBinWidth(bin)
         if slope < 0 :
@@ -79,7 +78,7 @@ class WrappedHist() :
       self.scaleFactors.append(Decimal(scale))
 
       selectedbincontents.append(Decimal(self.histogram.GetBinContent(bin)))
-      selectedbinxvals.append(self.binxvals[bin])
+      selectedbinxvals.append(self.binxvals[bin-1])
       selectedbinwidths.append(Decimal(self.histogram.GetBinWidth(bin)))
       selectedbinedges.append(Decimal(self.histogram.GetBinLowEdge(bin)))
       if bin == windowLow :
@@ -93,7 +92,7 @@ class WrappedHist() :
     pseudoHist = ROOT.TH1D(self.histogram)
     pseudoHist.SetName(self.histogram.GetName()+"_pseudo")
     pseudoHist.Reset()
-    for bin in range(self.histogram.GetNbinsX()+1) :
+    for bin in range(1,self.histogram.GetNbinsX()+1) :
       effExp = self.histogram.GetBinContent(bin)
       weight = 1.0 #fWeightsHistogram.GetBinContent(bin);
       pseudo = self.randomNumberGenerator.PoissonD(effExp)
@@ -113,11 +112,7 @@ class WrappedHist() :
     # scaleparsby = all 1's for representative result
     scaleparsby = MathFunctions.getFlatVector(len(self.binxvals),1.0)
     
-    print "Passing in:"
-    print "[47]:",self.binxvals[47]
-    print "[48]:",self.binxvals[48]
-    print "[49]:",self.binxvals[49]
-    #print "[50]:",self.binxvals[50]
+    print "Inside HistWrapper."
     dividedDifferenceDatabase, jacobianDatabase = MathFunctions.computeDividedDifferences(degree,self.binxvals,self.binedges,scaleparsby)
     
     graphs = {}
@@ -136,30 +131,33 @@ class WrappedHist() :
       graphs[order] = graph
 
     for order in range(1,degree+1) :
+      #print "\nBeginning order",order
 
       thisorderdict = dividedDifferenceDatabase[int(order)]
 
-      for bin in range(1,self.histogram.GetNbinsX()+1 - order) :
+      for bin in range(0,len(self.binxvals) - order) :
         
         # Bins used range from bin to bin+degree inclusive.
         # Even orders use center of middle bin
         if order%2==0 :
-          xval = self.binxvals[bin+int(float(order)/2.0)]
+          xval = self.binxvals[bin+int(numpy.ceil(float(order)/2.0))]
         # Odd orders use bin boundary between central two bins
         else :
           xval = self.histogram.GetBinLowEdge(bin+int(numpy.ceil(float(order)/2.0)))
 
+        #print "in bin",bin,":"
+        #print thisorderdict[bin]
         code = """myfunc = lambda pars : {0}""".format(thisorderdict[bin])
         exec code
         # Parameters are equivalent of bin values divided by binxvals
         pars = numpy.divide(self.bincontents,self.binwidths)
         graphs[order].SetPoint(bin-1,xval,myfunc(pars))
       
-        if order == 2 and self.histogram.FindBin(1300) == bin :
-          print "For computing the derivative at this point,"
-          print thisorderdict[bin]
-          print "Which for nominal pars gives",myfunc(pars)
-          print "And is being assigned to xvalue",xval
+#        if order == 2 and self.histogram.FindBin(1300) == bin :
+#          print "For computing the derivative at this point,"
+#          print thisorderdict[bin]
+#          print "Which for nominal pars gives",myfunc(pars)
+#          print "And is being assigned to xvalue",xval
 
     for order in range(1,degree+1) :
       code = "self.der{0} = graphs[{0}]".format(order)
