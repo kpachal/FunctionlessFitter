@@ -136,6 +136,7 @@ class RunFitter :
     startValHist = self.hist.Clone("startValHist")
     startValHist.SetName("startValHist")
     getStartVals = WrappedHist(startValHist)
+    print getStartVals.lastBinWithData
     if self.binHigh < 0 :
       fullVals, xvals, widths, edges, w1, w2 = wInput.getSelectedBinInfo(self.binLow,getStartVals.lastBinWithData)
     else :

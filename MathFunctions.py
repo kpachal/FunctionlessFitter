@@ -22,13 +22,7 @@ def computeDividedDifferences(degree,selectedbinxvals,selectedbinedges,scalePars
     # higher order derivatives and jacobians
     for order in range(1,degree+1) :
 
-#      if order%2==0 :
-#        print 'Order',order,': Going to use bin centers.'
-#      else :
-#        print 'Order',order,': Going to use bin edges.'
-
       lastorderdict = dividedDifferenceDatabase[int(order-1)]
-#      print lastorderdict
       thisorderdict = {}
  
       # Matrix to multiply into current jacobian terms
@@ -50,9 +44,10 @@ def computeDividedDifferences(degree,selectedbinxvals,selectedbinedges,scalePars
           xa = selectedbinxvals[relevantbina+int(float(order)/2.0)]
           xb = selectedbinxvals[relevantbinb+int(float(order)/2.0)]
         else :
+#          xa = selectedbinedges[relevantbina+int(float(order)/2.0)]
+#          xb = selectedbinedges[relevantbinb+int(float(order)/2.0)]
           xa = selectedbinedges[relevantbina+int(float(order)/2.0)]
           xb = selectedbinedges[relevantbinb+int(float(order)/2.0)]
-        #print xa, xb
         #print "Order",order,": comparing bin-groups beginning at bins",relevantbina+1,relevantbinb+1,"with locations defined by",xa,xb
 
         diff = "({1}-{0})/({3}-{2})".format(fxa, fxb, "Decimal({0})".format(xa),"Decimal({0})".format(xb))

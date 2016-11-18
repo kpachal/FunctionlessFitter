@@ -15,30 +15,6 @@ from Chi2Test import Chi2Test
 from LogLikelihoodTest import LogLikelihoodTest
 from PseudoExperimenter import PseudoExperimenter
 
-def getNthDerivative(func,degree,x,h) :
-
-  val = 0
-  for i in range(degree+1) :
-    term = pow(-1.0,i) * scipy.special.binom(degree,i) * func.Eval(x + (degree/2.0 - i)*h)
-    val = val + term
-  return val/pow(h,degree)
-
-def getNthDerivativeGraphFromFunc(template, func, degree, h) :
-
-  graph = ROOT.TGraph()
-  graph.SetName("fromTF1_Der{0}".format(degree))
-
-  index = -1
-  for bin in range(1,template.GetNbinsX()+1) :
-    index = index+1
-    val = template.GetBinCenter(bin)
-    if template.GetBinLowEdge(bin) < 1101 :
-      graph.SetPoint(index,val,0.0)
-      continue
-    D = getNthDerivative(func,degree,val,h)
-    graph.SetPoint(index,val,D)
-  return graph
-
 class RunFitter :
 
   def __init__(self) :
@@ -69,7 +45,8 @@ class RunFitter :
 
     # Get a histogram we want to fit. I'll use dijets EOYE.
     self.infile = ROOT.TFile("samples/dataLikeHistograms_IBLOff.2015.root")
-    self.nominalFitFile = ROOT.TFile("samples/Step1_SearchPhase_mjj_Data_2015_3p57fb_fluctOnData.root","READ")
+    #self.nominalFitFile = ROOT.TFile("samples/Step1_SearchPhase_mjj_Data_2015_3p57fb_fluctOnData.root","READ")
+    self.nominalFitFile = ROOT.TFile("samples/newNominal_EOYE.root","READ")
     self.hist = self.infile.Get("Nominal/mjj_Data_2015_3p57fb")
     self.hist.SetDirectory(0)
     parvec = self.nominalFitFile.Get("fittedParameters")
@@ -84,7 +61,7 @@ class RunFitter :
     self.outputFileName = "results/test/outputfile_3rdOrderConstraint.root"
 
     self.firstVal = 1100
-    self.lastVal = 7000
+    self.lastVal = 7052
 
     if self.firstVal < self.lowestVal :
       self.lowestVal = self.firstVal
@@ -178,7 +155,7 @@ class RunFitter :
     self.infile.Close()
 
     self.firstVal = 4370
-    self.lastVal = 4641
+    self.lastVal = 4782.00
 
     if self.firstVal < self.lowestVal :
       self.lowestVal = self.firstVal
@@ -239,7 +216,9 @@ class RunFitter :
 #    bhStat = bumpHunter.doTest(wInput, wResult, self.binLow,self.binHigh)
 
     # Compare to nominal fit result from the old code
-    nominalFit = self.nominalFitFile.Get("basicBkgFrom4ParamFit")
+    self.nominalFitFile.ls()
+    #nominalFit = self.nominalFitFile.Get("basicBkgFrom4ParamFit")
+    nominalFit = self.nominalFitFile.Get("nominal_simple")
     nominalFit.SetDirectory(0)
     wNominal = WrappedHist(nominalFit)
     wNominal.graphUpToNthDerivatives(4)
@@ -278,17 +257,21 @@ class RunFitter :
     
     # Check if my residual calculator is working correctly:
     # do I reproduce the one in the nominal result correctly?
-    nominalResidual = self.nominalFitFile.Get("residualHist")
-    nominalResidual.SetDirectory(0)
-    self.nominalFitFile.Close()
-    reproducedResidual = getResidual(self.hist,nominalFit,self.binLow,self.binHigh)
+#    nominalResidual = self.nominalFitFile.Get("residualHist")
+#    nominalResidual.SetDirectory(0)
+#    self.nominalFitFile.Close()
+#    reproducedResidual = getResidual(self.hist,nominalFit,self.binLow,self.binHigh)
 
     # Make plots overlaying fit derivatives from func on those from histograms
     for thishist, thisname in [[firstDerNom,"firstDerivative"],[secondDerNom,"secondDerivative"],[thirdDerNom,"thirdDerivative"],[fourthDerNom,"fourthDerivative"]] : #,[fifthDerNom,"fifthDerivative"],[sixthDerNom,"sixthDerivative"],[seventhDerNom,"seventhDerivative"]] :
-      self.myPainter.drawBasicFunction([self.derivativeFuncs[name][thisname+"FromTF1"],thishist], self.firstVal, self.lastVal,"m_{jj}","Value","plotting/plots/testGlobalFitBehaviours/funcOnHist_"+thisname+"_"+name,legendlines = ["analytical","approximate"],ylow=self.derivativeFuncs[name][thisname+"FromTF1"].GetMinimum(),yhigh=self.derivativeFuncs[name][thisname+"FromTF1"].GetMaximum(), makeCanvas=True,doLogY=False,doLogX=True,lineColour = ROOT.kCyan+2,doRectangular = False)
+      for index in range(thishist.GetN()) :
+        xval = thishist.GetX()[index]
+        print "index",index," at x",xval,": comp.",thishist.GetY()[index],",true",self.derivativeFuncs[name][thisname+"FromTF1"].Eval(xval)
+      lowy = self.derivativeFuncs[name][thisname+"FromTF1"].GetMinimum()
+      highy = self.derivativeFuncs[name][thisname+"FromTF1"].GetMaximum()
+      self.myPainter.drawBasicFunction([self.derivativeFuncs[name][thisname+"FromTF1"],thishist], self.firstVal, self.lastVal,"m_{jj}","Value","plotting/plots/testGlobalFitBehaviours/funcOnHist_"+thisname+"_"+name,legendlines = ["analytical","approximate"],ylow=(0.8*lowy if lowy > 0 else 1.2*lowy),yhigh=(1.2*highy if highy > 0 else 0.8*highy), makeCanvas=True,doLogY=False,doLogX=True,lineColour = ROOT.kCyan+2,doRectangular = False)
 
     # Write everything to a file
-    print "Making file",self.outputFileName
     outputFile = ROOT.TFile(self.outputFileName,"RECREATE")
     outputFile.cd()
     self.hist.Write("basicData")
@@ -326,15 +309,15 @@ class RunFitter :
       self.derivativeFuncs[title] = {}
     
     # Make plots: plotFunction(self, funcString, vallow, valhigh, title)
-    self.callPlotter("{0}".format(firstDer),vallow,valhigh,"firstDerivativeFromTF1_"+title)
-    self.callPlotter("{0}".format(secondDer),vallow,valhigh,"secondDerivativeFromTF1_"+title)
-    self.callPlotter("{0}".format(thirdDer),vallow,valhigh,"thirdDerivativeFromTF1_"+title)
-    self.callPlotter("{0}".format(fourthDer),vallow,valhigh,"fourthDerivativeFromTF1_"+title)
-    self.callPlotter("{0}".format(fifthDer),vallow,valhigh,"fifthDerivativeFromTF1_"+title)
-    self.callPlotter("{0}".format(sixthDer),vallow,valhigh,"sixthDerivativeFromTF1_"+title)
-    self.callPlotter("{0}".format(seventhDer),vallow,valhigh,"seventhDerivativeFromTF1_"+title)
+    self.callPlotter("{0}".format(firstDer),vallow,valhigh,"firstDerivativeFromTF1_"+title,1)
+    self.callPlotter("{0}".format(secondDer),vallow,valhigh,"secondDerivativeFromTF1_"+title,2)
+    self.callPlotter("{0}".format(thirdDer),vallow,valhigh,"thirdDerivativeFromTF1_"+title,3)
+    self.callPlotter("{0}".format(fourthDer),vallow,valhigh,"fourthDerivativeFromTF1_"+title,4)
+    self.callPlotter("{0}".format(fifthDer),vallow,valhigh,"fifthDerivativeFromTF1_"+title,5)
+    self.callPlotter("{0}".format(sixthDer),vallow,valhigh,"sixthDerivativeFromTF1_"+title,6)
+    self.callPlotter("{0}".format(seventhDer),vallow,valhigh,"seventhDerivativeFromTF1_"+title,7)
 
-  def callPlotter(self, funcString, vallow, valhigh, title) :
+  def callPlotter(self, funcString, vallow, valhigh, title, derivativeOrder=0) :
   
     funcString = funcString.replace("**","^")
     myFunc = ROOT.TF1(title+"_f",funcString, vallow, valhigh)
@@ -343,23 +326,23 @@ class RunFitter :
     tokens = title.split("_")
     self.derivativeFuncs[tokens[-1]][tokens[0]] = myFunc
 
-    if "second" in title :
-      print funcString
-      print "At 1300, value is",myFunc.Eval(1300)
-
-    self.myPainter.drawBasicFunction(myFunc, vallow*0.8,valhigh*1.2,"m_{jj}","Value","plotting/plots/testGlobalFitBehaviours/"+title,makeCanvas=True,doLogY=False,doLogX=True,lineColour = ROOT.kCyan+2,doRectangular = False)
+    if derivativeOrder < 1 :
+      yname = "Value"
+    else :
+      yname = "f"+"'"*derivativeOrder
+    self.myPainter.drawBasicFunction(myFunc, vallow,valhigh,"m_{jj}",yname,"plotting/plots/testGlobalFitBehaviours/"+title,makeCanvas=True,doLogY=False,doLogX=True,lineColour = ROOT.kCyan+2,doRectangular = False)
 
 
 if __name__ == "__main__":
 
   fitter = RunFitter()
-  #for result in ["EOYE"] :
-  for result in ["TEST"] : #,"TLA","ICHEP"] :
+  for result in ["EOYE"] :
+  #for result in ["TEST"] : #,"TLA","ICHEP"] :
     fitter.setValues(result)
     fitter.executeFit(result)
 
-  for order in fitter.derivativeFuncs["TEST"].keys() :
-  #for order in fitter.derivativeFuncs["EOYE"].keys() :
+  #for order in fitter.derivativeFuncs["TEST"].keys() :
+  for order in fitter.derivativeFuncs["EOYE"].keys() :
     functions = []
     for result in fitter.derivativeFuncs.keys() :
       functions.append(fitter.derivativeFuncs[result][order])

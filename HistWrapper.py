@@ -23,18 +23,18 @@ class WrappedHist() :
   def getHistOutermostBinsWithData(self,epsilon = -1) :
 
     firstBin = 1
-    while self.histogram.GetBinContent(firstBin)==1 and firstBin < self.histogram.GetNbinsX() :
+    while self.histogram.GetBinContent(firstBin)==0 and firstBin < self.histogram.GetNbinsX() :
       firstBin = firstBin+1
     lastBin = self.histogram.GetNbinsX()
     if epsilon < 0 :
-      while self.histogram.GetBinContent(lastBin)==1 and lastBin > 1 : lastBin = lastBin-1
+      while self.histogram.GetBinContent(lastBin)==0 and lastBin > 1 : lastBin = lastBin-1
     else :
       while self.histogram.GetBinContent(lastBin) < epsilon and lastBin > 1 : lastBin = lastBin-1
     if firstBin == self.histogram.GetNbinsX() and lastBin == 1 :
       print "No data in histogram! Resetting limits to first and last bin."
       firstBin = 1
       lastBin = self.histogram.GetNbinsX()
-      
+    
     self.firstBinWithData = firstBin
     self.lastBinWithData = lastBin
     return
@@ -112,7 +112,6 @@ class WrappedHist() :
     # scaleparsby = all 1's for representative result
     scaleparsby = MathFunctions.getFlatVector(len(self.binxvals),1.0)
     
-    print "Inside HistWrapper."
     dividedDifferenceDatabase, jacobianDatabase = MathFunctions.computeDividedDifferences(degree,self.binxvals,self.binedges,scaleparsby)
     
     graphs = {}
@@ -130,34 +129,32 @@ class WrappedHist() :
       graph.SetName(name)
       graphs[order] = graph
 
+    # Parameters are equivalent of bin values divided by binxvals
+    pars = numpy.divide(self.bincontents,self.binwidths)
+    print "Parameters are",pars
     for order in range(1,degree+1) :
-      #print "\nBeginning order",order
+      print "\nBeginning order",order
 
       thisorderdict = dividedDifferenceDatabase[int(order)]
 
+      #print self.binedges
       for bin in range(0,len(self.binxvals) - order) :
         
         # Bins used range from bin to bin+degree inclusive.
         # Even orders use center of middle bin
         if order%2==0 :
-          xval = self.binxvals[bin+int(numpy.ceil(float(order)/2.0))]
+          xval = self.binxvals[bin+int(float(order)/2.0)]
         # Odd orders use bin boundary between central two bins
         else :
-          xval = self.histogram.GetBinLowEdge(bin+int(numpy.ceil(float(order)/2.0)))
+          xval = self.binedges[bin+int(float(order)/2.0)+1]
 
         #print "in bin",bin,":"
         #print thisorderdict[bin]
         code = """myfunc = lambda pars : {0}""".format(thisorderdict[bin])
         exec code
-        # Parameters are equivalent of bin values divided by binxvals
-        pars = numpy.divide(self.bincontents,self.binwidths)
-        graphs[order].SetPoint(bin-1,xval,myfunc(pars))
-      
-#        if order == 2 and self.histogram.FindBin(1300) == bin :
-#          print "For computing the derivative at this point,"
-#          print thisorderdict[bin]
-#          print "Which for nominal pars gives",myfunc(pars)
-#          print "And is being assigned to xvalue",xval
+        graphs[order].SetPoint(bin,xval,myfunc(pars))
+  
+        print "At xval",xval,"assigning value",thisorderdict[bin]
 
     for order in range(1,degree+1) :
       code = "self.der{0} = graphs[{0}]".format(order)
