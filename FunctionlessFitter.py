@@ -4,6 +4,11 @@ import scipy
 from scipy import optimize
 from scipy import special
 from HistWrapper import WrappedHist
+from fractions import *
+from decimal import *
+getcontext().prec = 28
+from numbers import *
+import MathFunctions
 
 class FunctionlessFitter :
 
@@ -90,30 +95,37 @@ class FunctionlessFitter :
       uppers.append(None)
     return zip(lowers,uppers)
 
-  def getStartVals_flat(self) :
+  def getStartVals_flat(self,doScale=True) :
     if not self.selectedbincontents :
       print "Fill bins first!"
       return -1
   
     start_vals = []
+    self.flatStartVal = Decimal(self.flatStartVal)
     for bin in range(len(self.selectedbincontents)) :
-      start_vals.append(self.flatStartVal/self.scaleParsBy[bin])
+      if doScale :
+        start_vals.append(self.flatStartVal/self.scaleParsBy[bin])
+      else :
+        start_vals.append(self.flatStartVal)
     return start_vals
 
-  def getStartVals_linear(self) :
+  def getStartVals_linear(self,doScale=True) :
     if not self.selectedbincontents :
       print "Fill bins first!"
       return -1
     
-    run = self.selectedbinxvals[-1] - self.selectedbinxvals[0]
-    slope = (self.selectedbincontents[-1]/self.selectedbinwidths[-1] - self.selectedbincontents[0]/self.selectedbinwidths[0])/run
+    run = Decimal(self.selectedbinxvals[-1] - self.selectedbinxvals[0])
+    slope = Decimal((self.selectedbincontents[-1]/self.selectedbinwidths[-1] - self.selectedbincontents[0]/self.selectedbinwidths[0])/run)
     start_vals = []
     for bin in range(len(self.selectedbincontents)) :
       val = self.selectedbincontents[0]/self.selectedbinwidths[0] + slope*(self.selectedbinxvals[bin]-self.selectedbinxvals[0])
-      start_vals.append(val/self.scaleParsBy[bin])
+      if doScale :
+        start_vals.append(val/self.scaleParsBy[bin])
+      else :
+        start_vals.append(val)
     return start_vals
     
-  def getStartVals_exponential(self) :
+  def getStartVals_exponential(self,doScale=True) :
     if not self.selectedbincontents :
       print "Fill bins first!"
       return -1
@@ -142,71 +154,25 @@ class FunctionlessFitter :
     # a = y2 e^(- b x2)
     # y = y2 e^(b(x - x2))
     # So really we only need to compute b.
-    b = (numpy.log(y1) - numpy.log(y2))/(x1 - x2)
+    b = (y1.ln() - y2.ln())/(x1 - x2)
 
     start_vals = []
     for bin in range(len(self.selectedbincontents)) :
       x = self.selectedbinxvals[bin]
       y = y2*numpy.exp(b*(x - x2))
-      start_vals.append(y/self.scaleParsBy[bin])
-    return start_vals
-
-
-  def getStartVals_fromInput(self,vec) :
-  
-    start_vals = []
-  
+      if doScale :
+        start_vals.append(y/self.scaleParsBy[bin])
+      else :
+        start_vals.append(y)
     return start_vals
   
-  def computeConstraints(self, degree) :
-
-    # 0th degree derivatives
-    baseDict = {}
-    for bin in range(len(self.selectedbinxvals)) :
-      baseDict[bin] = "pars[{0}]*{1}".format(bin,self.scaleParsBy[bin])
-    self.dividedDifferenceDatabase[0] = baseDict
-  
-    # 0th degree Jacobian matrix
-    baseJac = numpy.identity(len(self.selectedbinxvals))*self.scaleParsBy
-    self.jacobianDatabase[0] = baseJac
-  
-    # higher order derivatives and jacobians
-    for order in range(1,degree+1) :
-    
-      lastorderdict = self.dividedDifferenceDatabase[int(order-1)]
-      thisorderdict = {}
- 
-      # Matrix to multiply into current jacobian terms
-      A = []
-
-      for index in range(len(self.selectedbinxvals) - order) :
-      
-        # Difference for the constraint itself
-        fxa = lastorderdict[index]
-        fxb = lastorderdict[index+1]
-        diff = "({1}-{0})/({3}-{2})".format(fxa, fxb, self.selectedbinxvals[index],self.selectedbinxvals[index+order])
-        thisorderdict[index] = diff
-
-        jacRow = []
-        for column in range(len(self.selectedbinxvals) - order+1) :
-          val = self.selectedbinxvals[index+order] - self.selectedbinxvals[index]
-          if column == index :
-            jacRow.append(-1.0/val)
-          elif column == index+1 :
-            jacRow.append(1.0/val)
-          else :
-            jacRow.append(0)
-        A.append(jacRow)
-
-      self.dividedDifferenceDatabase[int(order)] = thisorderdict
-      self.jacobianDatabase[int(order)] = numpy.dot(A,self.jacobianDatabase[int(order)-1])
-
   def getDerivativeConstraints(self, degree, slope) :
 
     if int(degree) not in self.dividedDifferenceDatabase.keys() :
-      self.computeConstraints(degree)
+      self.dividedDifferenceDatabase,self.jacobianDatabase = MathFunctions.computeDividedDifferences(degree,self.selectedbinxvals,self.selectedbinedges, self.scaleParsBy)
 
     constraints = []
+    self.eqDict = {}
     nPars = len(self.selectedbincontents)
     
     for index in range(nPars-degree-1) :
@@ -214,14 +180,27 @@ class FunctionlessFitter :
       term1 = self.dividedDifferenceDatabase[degree][index]
       term2 = self.dividedDifferenceDatabase[degree][index+1]
     
-      eqString = "["
+      # At this point it's possible to compare scalePars of terms that ended up relevant
+      # and scale constraints and jacobians down by them. Let's see if that
+      # stabilises the convergence in the scaled cases.
+      # We know what indices were relevant in this spot:
+#      relevantIndices = range(index,index+degree+2)
+#      relevantScales = self.scaleParsBy[index:index+degree+2]
+#      minScale = min(relevantScales)
+#      newScales = [x/minScale for x in relevantScales]
+
+      eqString = ""
       if slope < 0 : eqString = eqString + " - "
       eqString = eqString + term2
       if slope < 0 : eqString = eqString + " + "
       else : eqString = eqString + " - "
       eqString = eqString + term1
-      eqString = eqString + "]"
     
+      # Implement scaling of eqString to new lowest common denominators
+#      for subindex in relevantIndices :
+#        eqString = eqString.replace("pars[{0}]*{1}".format(subindex,relevantScales[relevantIndices.index(subindex)]),"pars[{0}]*{1}".format(subindex,newScales[relevantIndices.index(subindex)]))
+#        eqString = eqString.replace("(pars[","{0}*(pars[".format(minScale*10.0))
+
       vec1 = numpy.array(self.jacobianDatabase[degree][index])
       vec2 = numpy.array(self.jacobianDatabase[degree][index+1])
       jacobian = slope*vec2 - slope*vec1
@@ -230,8 +209,10 @@ class FunctionlessFitter :
         jacString = jacString + "{0}, ".format(term)
       jacString = jacString + "]"
 
+      self.eqDict[index] = {'eq' : eqString, 'jac' : eval(jacString)}
+
       code = """constraint = {0}'type': 'ineq',
-        'fun' : lambda pars: numpy.array({1}),
+        'fun' : lambda pars: {1},
         'jac' : lambda pars: numpy.array({2}){3}""".format("{",eqString,jacString,"}")
       exec code
       constraints.append(constraint)
@@ -247,32 +228,37 @@ class FunctionlessFitter :
       self.rangeHigh = spectrum.lastBinWithData
     else : self.rangeHigh = lastBin
     
-    self.selectedbincontents, self.selectedbinxvals, self.selectedbinwidths, self.windowLow, self.windowHigh = spectrum.getSelectedBinInfo(self.rangeLow,self.rangeHigh,self.firstBinInWindow,self.lastBinInWindow)
+    self.selectedbincontents, self.selectedbinxvals, self.selectedbinwidths, self.selectedbinedges, self.windowLow, self.windowHigh = spectrum.getSelectedBinInfo(self.rangeLow,self.rangeHigh,self.firstBinInWindow,self.lastBinInWindow)
     self.scaleParsBy = spectrum.scaleFactors
-    print self.scaleParsBy
     
     if self.startValFormat == "exp" :
       print "Using exponential start values"
       start_vals = self.getStartVals_exponential()
+      start_vals_unscaled = self.getStartVals_exponential(False)
     elif self.startValFormat == "flat" :
       print "Using flat start values."
       start_vals = self.getStartVals_flat()
+      start_vals_unscaled = self.getStartVals_flat(False)
     elif self.startValFormat == "linear" :
       print "Using linear start values"
       start_vals = self.getStartVals_linear()
+      start_vals_unscaled = self.getStartVals_linear(False)
     elif self.startValFormat == "user" :
       if len(self.userStartVals) > 0 :
         print "Using user-specified start values."
         temp_vals = tuple(self.userStartVals)
         start_vals = []
+        start_vals_unscaled = []
         index = -1
         for v in temp_vals :
           index = index+1
-          start_vals.append(v/self.scaleParsBy[index])
+          start_vals.append(Decimal(v)/self.scaleParsBy[index])
+          start_vals_unscaled.append(Decimal(v))
       else :
         print "No start values specified by user!"
         print "Using default flat values."
         start_vals = self.getStartVals_flat()
+        start_vals_unscaled = self.getStartVals_flat(False)
     else :
       raise ValueError("Requested start value format is unrecognized!")
 
@@ -280,11 +266,20 @@ class FunctionlessFitter :
     
     # Calculate values to use for constraints: saves us doing it later
     orders = self.derivativeConstraints.keys()
-    self.computeConstraints(max(orders))
+
+    # Unscaled version
+    self.scaleParsBy = MathFunctions.getFlatVector(len(self.selectedbinxvals),1.0)
+    self.dividedDifferenceDatabase,self.jacobianDatabase = MathFunctions.computeDividedDifferences(max(orders),self.selectedbinxvals,self.selectedbinedges, self.scaleParsBy)
+    self.unscaledConstraints = []
+    for order in orders :
+      slope = self.derivativeConstraints[order]
+      self.unscaledConstraints = self.unscaledConstraints + self.getDerivativeConstraints(order,slope)
+
+    # Scaled version (default)
+    self.scaleParsBy = spectrum.scaleFactors
+    self.dividedDifferenceDatabase,self.jacobianDatabase = MathFunctions.computeDividedDifferences(max(orders),self.selectedbinxvals,self.selectedbinedges, self.scaleParsBy)
     self.myConstraints = []
     print orders
-    
-#   Old method: attempt to do all in a single fit
     for order in orders :
       slope = self.derivativeConstraints[order]
       self.myConstraints = self.myConstraints + self.getDerivativeConstraints(order,slope)
@@ -294,57 +289,63 @@ class FunctionlessFitter :
     # Add smoothing routine for user-supplied start values
     # Use COBYLA with loosened tolerance on parameter constraint obedience
     # to smooth, for instance, data values so they obey further iterations
-    print "So we are starting from:"
-    print start_vals
-    if self.startValFormat == "user" or self.startValFormat == "flat":
+    # rhobeg was 1e4 for non-scaled system but is now lower because of parameter adjustments
+    #looseOpts = {'disp': True, 'maxiter':1000, 'rhobeg':50, 'tol':1e-7, 'catol':1e-2} # 2 and 2 good.
+    #looseOpts = {'disp': True, 'maxiter':1000, 'rhobeg':1e5, 'tol':1e-6, 'catol':1e-2} # 2 and 2 good.
+    looseOpts = {'disp': True, 'maxiter':1000,'catol':1e-2} # 2 and 2 good.
+    if self.startValFormat == "user" :
+      # If we are using start values within an even vaguely reasonable distance of the
+      # final result, we get our best chance by taking smaller steps and combing the
+      # parameter space thoroughly. Use unscaled parameters.
       print "Beginning input value smoothing"
-      looseOpts = {'disp': True, 'maxiter':1000, 'rhobeg':50, 'tol':1e-7, 'catol':1e-2} # 2 and 2 good.
-      # rhobeg was 1e4 for non-scaled system but is now lower because of parameter adjustments
+      print "We are starting from unscaled parameters."
+      self.scaleParsBy = MathFunctions.getFlatVector(len(self.selectedbinxvals),1.0)
+      print "start_vals_unscaled are:",start_vals_unscaled
+      if debug :
+        status = scipy.optimize.minimize(self.function, start_vals_unscaled, method='COBYLA', options=looseOpts)
+      else :
+        status = scipy.optimize.minimize(self.function, start_vals_unscaled, method='COBYLA', constraints=self.unscaledConstraints, options=looseOpts)
+      start_vals_unscaled = status.x
+    elif self.startValFormat == "flat":
+      # If we are very, very far from a minimum, oversized steps may be the only way to get anywhere close.
+      print "Beginning input value smoothing"
       if debug :
         status = scipy.optimize.minimize(self.function, start_vals, method='COBYLA', options=looseOpts)
       else :
         status = scipy.optimize.minimize(self.function, start_vals, method='COBYLA', constraints=self.myConstraints, options=looseOpts)
       start_vals = status.x
+      start_vals_unscaled = numpy.multiply([Decimal(val) for val in start_vals],spectrum.scaleFactors)
 
-    # Version currently in svn
-    print "Beginning simple fit"
+    #updated_start_vals = numpy.divide([Decimal(val) for val in start_vals_unscaled],spectrum.scaleFactors)
+
+    self.scaleParsBy = MathFunctions.getFlatVector(len(self.selectedbinxvals),1.0)
+    print "Beginning simple fit."
+    print "start_val_unscaled are:",start_vals_unscaled
     if debug :
-      status = scipy.optimize.minimize(self.function, start_vals, method='SLSQP', jac=self.function_der, bounds=self.myBounds, options={'disp': True, 'maxiter':10000})
+      status = scipy.optimize.minimize(self.function, start_vals_unscaled, method='SLSQP', jac=self.function_der, bounds=self.myBounds, options={'disp': True, 'maxiter':10000})
     else :
-      status = scipy.optimize.minimize(self.function, start_vals, method='SLSQP', jac=self.function_der, bounds=self.myBounds, constraints=self.myConstraints, options={'disp': True, 'maxiter':10000})
+      status = scipy.optimize.minimize(self.function, start_vals_unscaled, method='SLSQP', jac=self.function_der, bounds=self.myBounds, constraints=self.unscaledConstraints, options={'disp': True, 'maxiter':10000})
+
     updated_start_vals = status.x
-    # Work on tightening convergence criteria! Test this using ICHEP results
+    print "unscaled, updated_start_vals are:",updated_start_vals
+    updated_start_vals = numpy.divide([Decimal(val) for val in updated_start_vals],spectrum.scaleFactors)
+
+    # Work on tightening convergence criteria!
+    print "Returning to scaled parameters and beginning robust fit"
     options_dict = self.getOptionsDict(self.minAlg)
-    print "Beginning robust fit"
+    self.scaleParsBy = spectrum.scaleFactors
     print self.minAlg,options_dict
+    print "scaled, updated_start_vals are:",updated_start_vals
     if debug :
       status = scipy.optimize.minimize(self.function, updated_start_vals, method=self.minAlg, jac=self.function_der, bounds=self.myBounds, options=options_dict)
     else :
       status = scipy.optimize.minimize(self.function, updated_start_vals, method=self.minAlg, jac=self.function_der, bounds=self.myBounds, constraints=self.myConstraints, options=options_dict)
     print "Final parameter values:"
     print status.x
+    self.parameterVals = status.x
 
-#    updated_start_vals = start_vals
-#    for order in orders :
-#    
-#      print "Beginning study at order",order
-#      slope = self.derivativeConstraints[order]
-#      if order==0 :
-#        self.myConstraints = self.getDerivativeConstraints(order,slope)
-#      else :
-#        self.myConstraints = self.myConstraints + self.getDerivativeConstraints(order,slope)
-#
-#      # Work on tightening convergence criteria! Test this using ICHEP results
-#      options_dict = self.getOptionsDict(self.minAlg)
-#      #if 'catol' in options_dict.keys() and order > 2 :
-#        #options_dict['catol'] = 0.1*(order-2)*options_dict['catol']
-#      #if 'tol' in options_dict.keys() and order > 2 :
-#        #options_dict['tol'] = 0.1*(order-2)*options_dict['tol']
-#      status = scipy.optimize.minimize(self.function, updated_start_vals, method=self.minAlg, jac=self.function_der, bounds=self.myBounds, constraints=self.myConstraints, options=options_dict)
-#      print status
-#      updated_start_vals = status.x
-#
-    self.result = numpy.multiply(status.x,self.scaleParsBy)
+    self.result = numpy.multiply([Decimal(val) for val in status.x],self.scaleParsBy)
+
 
     # Return a histogram with bin contents equal to fit results
     outputHist = spectrum.histogram.Clone("fitResult")
@@ -380,6 +381,7 @@ class FunctionlessFitter :
           outputHist.SetBinError(bin,0.0)
         else :
           error = variances[bin - self.rangeLow]
+          print "Adding error",error,"to bin",bin
           outputHist.SetBinError(bin,error)
 
     else :
@@ -398,7 +400,7 @@ class FunctionlessFitter :
     # Expectation in each bin is parameter times scale factor to bring it
     # to the proper magnitude.
     
-    answer = 0
+    answer = Decimal(0.0)
     #print "pars:"
     for index in range(len(obs)) :
 
@@ -406,18 +408,18 @@ class FunctionlessFitter :
         continue
 
       data = int(obs[index])
-      bkg = exp[index]*self.selectedbinwidths[index]*self.scaleParsBy[index]
+      bkg = Decimal(exp[index])*self.selectedbinwidths[index]*self.scaleParsBy[index]
       #print "\tcompare",data,"to",bkg
       if data < 0.0 or bkg < 0.0 :
-        thisterm = -1E10
+        thisterm = Decimal(-1E10)
       elif data == 0.0 :
-        thisterm = -1.0*bkg
+        thisterm = Decimal(-1.0)*bkg
       else :
-        thisterm = data * numpy.log(bkg) - bkg - scipy.special.gammaln(data+1)
+#        thisterm = data * numpy.log(bkg) - bkg - scipy.special.gammaln(data+1.0)
+        thisterm = data * bkg.ln() - bkg - Decimal(scipy.special.gammaln(data+1.0))
       #print "\t",exp[index]
       answer = answer - thisterm
-    
-    #print answer
+        
     return answer
 
 
@@ -439,16 +441,16 @@ class FunctionlessFitter :
         continue
 
       data = int(obs[index])
-      bkg = exp[index]*self.selectedbinwidths[index]*self.scaleParsBy[index]
+      bkg = Decimal(exp[index])*self.selectedbinwidths[index]*self.scaleParsBy[index]
       if data < 0.0 or bkg < 0.0:
-        thisterm = 0.0
+        thisterm = Decimal(0.0)
       elif data == 0.0 :
         thisterm = self.selectedbinwidths[index]*self.scaleParsBy[index]
       else :
-        thisterm = (1.0 - (float(data)/float(bkg)))*self.selectedbinwidths[index]*self.scaleParsBy[index]
+        thisterm = (Decimal(1.0) - (Decimal(data)/bkg))*self.selectedbinwidths[index]*self.scaleParsBy[index]
       answer.append(thisterm)
 
-    return numpy.array(answer)
+    return numpy.array(answer,dtype=Decimal)
 
     
   def jacobianChi2(self,obs,exp) :
@@ -524,24 +526,37 @@ class FunctionlessFitter :
     for bin in range(len(self.result)) :
       binArrays.append([])
 
+    self.lastUncertaintyFitStatuses = []
     for PE in range(self.nPEs) :
 
       thisPE = nominalHistWrapper.poissonFluctuateBinByBin()
       PEWrapper = WrappedHist(thisPE)
       # Need to reset thing we run on to be contents of thisPE
-      self.selectedbincontents, self.selectedbinxvals, self.selectedbinwidths, self.windowLow, self.windowHigh = PEWrapper.getSelectedBinInfo(self.rangeLow,self.rangeHigh,self.firstBinInWindow,self.lastBinInWindow)
-      thisStatus = scipy.optimize.minimize(self.function, self.result, method=self.minAlg, jac=self.function_der, bounds=self.myBounds, constraints=self.myConstraints, options=options_dict)
-      print thisStatus
-      binResults = thisStatus.x
+      self.selectedbincontents, self.selectedbinxvals, self.selectedbinwidths, self.selectedbinedges, self.windowLow, self.windowHigh = PEWrapper.getSelectedBinInfo(self.rangeLow,self.rangeHigh,self.firstBinInWindow,self.lastBinInWindow)
+      thisStatus = scipy.optimize.minimize(self.function, self.parameterVals, method=self.minAlg, jac=self.function_der, bounds=self.myBounds, constraints=self.myConstraints, options=options_dict)
+      paramResults = thisStatus.x
+      # Multiply parameter values by scales to get equivalent of function val
+      binResults = numpy.multiply([Decimal(val) for val in paramResults],self.scaleParsBy)
+      # ... and now by bin width to get equivalent of bin content.
+      binResults = numpy.multiply(binResults,self.selectedbinwidths)
+      nominalBinResults = numpy.multiply(self.result,self.selectedbinwidths)
+      self.lastUncertaintyFitStatuses.append(thisStatus.status)
       index = -1
-      for value in binResults :
+      for newval, originalval in zip(binResults,nominalBinResults) :
         index = index+1
-        binArrays[index].append(value)
+        binArrays[index].append(newval - originalval)
 
     variances = []
+    self.lastUncertaintyBinContents = []
     for bin in range(len(self.result)) :
       vec = numpy.array(binArrays[bin])
-      variances.append(numpy.sqrt(numpy.vdot(vec, vec)/vec.size))
+      self.lastUncertaintyBinContents.append(vec)
+
+      mean = numpy.mean(vec)
+      x2 = 0
+      for input in vec :
+        x2 = x2 + (input-mean)*(input-mean)
+      variances.append(numpy.sqrt(x2/len(vec)))
 
     return variances
 

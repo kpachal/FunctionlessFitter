@@ -74,7 +74,7 @@ class RunSearchPhase :
       startVals = []
       self.histForStartVals.SetName("histForStartVals")
       getStartVals = WrappedHist(self.histForStartVals)
-      fullVals, xvals, widths, w1, w2 = getStartVals.getSelectedBinInfo(self.firstBinFit,self.lastBinFit)
+      fullVals, xvals, widths, edges, w1, w2 = getStartVals.getSelectedBinInfo(self.firstBinFit,self.lastBinFit)
       index = -1
       for item in fullVals :
         index = index+1
@@ -213,7 +213,7 @@ class RunSearchPhase :
     residualBins = []
     for bin in range(self.firstBinFit, self.lastBinFit+1) :
       residualBins.append(residual.GetBinContent(bin))
-    resDistHist = makeHistFromVector(residualBins)
+    resDistHist = makeHistFromVector(residualBins,1.0)
     resDistHist.Fit("gaus","0")
     fittedGauss = resDistHist.GetFunction("gaus")
     gausmean = fittedGauss.GetParameter(1)
@@ -239,6 +239,7 @@ class RunSearchPhase :
     final_result.Write("basicBkg")
     residual.Write("residual")
     resDistHist.Write("residualDistribution")
+    fittedGauss.Write("gausFitToResidualDist")
     relativeDiffHist.Write("relativeDiffHist")
     #sigOfDiffHist.Write("sigOfDiffHist")
 

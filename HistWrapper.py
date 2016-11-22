@@ -1,39 +1,22 @@
 import ROOT
 import numpy
+from decimal import *
+getcontext().prec = 28
+import MathFunctions
 
 class WrappedHist() :
 
-  def __init__(self,inputHist, seed=0, binStructure="central",scaleXAxis=False,scaleBy=-1) :
+  def __init__(self,inputHist, seed=0, binStructure="central") :
 
-    self.original = inputHist
     self.histogram = inputHist
-    self.scaleamount = 1
-#    if scaleXAxis :
-#      if scaleBy > 0 :
-#        self.scaleamount = scaleBy
-#      else :
-#        self.scaleamount = 1
-#        useWidth = self.histogram.GetBinWidth(self.histogram.GetNbinsX())
-#        while useWidth > 10.0 :
-#          useWidth = useWidth/10.0
-#          self.scaleamount = self.scaleamount*10
-#      a = self.histogram.GetXaxis()
-#      if (a.GetXbins().GetSize()) :
-#        oldbins = a.GetXbins()
-#        newbins = []
-#        for edge in oldbins : newbins.append(edge/self.scaleamount)
-#        self.histogram = ROOT.TH1D(self.original.GetName()+"_rebinned",self.original.GetName()+"_rebinned",(len(newbins) - 1), numpy.array(newbins))
-#      else :
-#        self.histogram = ROOT.TH1D(self.original.GetName()+"_rebinned",self.original.GetName()+"_rebinned",a.GetNbins(), a.GetXmin()/self.scaleamount, a.GetXmax()/self.scaleamount )
-#      for bin in range(self.histogram.GetNbinsX()+2) :
-#        self.histogram.SetBinContent(bin,self.original.GetBinContent(bin))
-#        self.histogram.SetBinError(bin,self.original.GetBinError(bin))
 
     self.getHistOutermostBinsWithData()
     self.bincontents = []
     self.binxvals = []
+    self.binedges = []
+    self.binwidths = []
     self.randomNumberGenerator = ROOT.TRandom3(seed)
-    self.recordBinXVals(binStructure)
+    self.recordBinXValsWidths(binStructure)
 
     return
 
@@ -51,25 +34,38 @@ class WrappedHist() :
       print "No data in histogram! Resetting limits to first and last bin."
       firstBin = 1
       lastBin = self.histogram.GetNbinsX()
-      
+    
     self.firstBinWithData = firstBin
     self.lastBinWithData = lastBin
     return
 
-  def recordBinXVals(self,type) :
+  def recordBinXValsWidths(self,type,slope=-1) :
     self.binxvals = []
-    for bin in range(self.histogram.GetNbinsX()+2) :
+    for bin in range(1, self.histogram.GetNbinsX()+1) :
       if type=="central" :
-        self.binxvals.append(self.histogram.GetBinCenter(bin))
+        self.binxvals.append(Decimal(self.histogram.GetBinCenter(bin)))
       elif type=="exp" :
         print "exp"
+        xlow = self.histogram.GetBinLowEdge(bin)
+        xhigh = self.histogram.GetBinWidth(bin)+xlow
+#        ylow =
+#        exp =
+      elif type=="linear" :
+        xlow = self.histogram.GetBinLowEdge(bin)
+        binwidth = self.histogram.GetBinWidth(bin)
+        if slope < 0 :
+          self.binxvals.append(Decimal(xlow+(1.0-1.0/numpy.sqrt(2.0))*binwidth))
       else :
         raise Exception( "Unrecognized bin center definition!" )
+      self.binedges.append(Decimal(self.histogram.GetBinLowEdge(bin)))
+      self.binwidths.append(Decimal(self.histogram.GetBinWidth(bin)))
+      self.bincontents.append(Decimal(self.histogram.GetBinContent(bin)))
 
   def getSelectedBinInfo(self,rangeLow,rangeHigh,windowLow=-1,windowHigh=-1) :
     selectedbincontents = []
     selectedbinxvals = []
     selectedbinwidths = []
+    selectedbinedges = []
     indexLow = -1
     indexHigh = -1
     self.scaleFactors = []
@@ -79,24 +75,24 @@ class WrappedHist() :
       while parVal > 10.0 :
         parVal = parVal/10.0
         scale = scale*10
-      #scale = 1.0
-      self.scaleFactors.append(scale)
+      self.scaleFactors.append(Decimal(scale))
 
-      selectedbincontents.append(self.histogram.GetBinContent(bin))
-      selectedbinxvals.append(self.binxvals[bin])
-      selectedbinwidths.append(self.histogram.GetBinWidth(bin))
+      selectedbincontents.append(Decimal(self.histogram.GetBinContent(bin)))
+      selectedbinxvals.append(self.binxvals[bin-1])
+      selectedbinwidths.append(Decimal(self.histogram.GetBinWidth(bin)))
+      selectedbinedges.append(Decimal(self.histogram.GetBinLowEdge(bin)))
       if bin == windowLow :
         indexLow = len(selectedbincontents)-1
       if bin == windowHigh :
         indexHigh = len(selectedbincontents)-1
-    return selectedbincontents,selectedbinxvals,selectedbinwidths,indexLow,indexHigh
+    return selectedbincontents,selectedbinxvals,selectedbinwidths,selectedbinedges,indexLow,indexHigh
 
   def poissonFluctuateBinByBin(self) :
 
     pseudoHist = ROOT.TH1D(self.histogram)
     pseudoHist.SetName(self.histogram.GetName()+"_pseudo")
     pseudoHist.Reset()
-    for bin in range(self.histogram.GetNbinsX()+1) :
+    for bin in range(1,self.histogram.GetNbinsX()+1) :
       effExp = self.histogram.GetBinContent(bin)
       weight = 1.0 #fWeightsHistogram.GetBinContent(bin);
       pseudo = self.randomNumberGenerator.PoissonD(effExp)
@@ -111,6 +107,12 @@ class WrappedHist() :
     return pseudoHist
 
   def graphUpToNthDerivatives(self,degree) :
+    
+    # selectedbinvals = self.binxvals
+    # scaleparsby = all 1's for representative result
+    scaleparsby = MathFunctions.getFlatVector(len(self.binxvals),1.0)
+    
+    dividedDifferenceDatabase, jacobianDatabase = MathFunctions.computeDividedDifferences(degree,self.binxvals,self.binedges,scaleparsby)
     
     graphs = {}
     for order in range(1,degree+1) :
@@ -127,23 +129,16 @@ class WrappedHist() :
       graph.SetName(name)
       graphs[order] = graph
 
-    dividedDifferenceDatabase = {}
-    
-    # 0th degree
-    baseDict = {}
-    for bin in range(len(self.binxvals)) :
-      baseDict[bin] = self.histogram.GetBinContent(bin)/self.histogram.GetBinWidth(bin)
-    dividedDifferenceDatabase[0] = baseDict
-
+    # Parameters are equivalent of bin values divided by binxvals
+    pars = numpy.divide(self.bincontents,self.binwidths)
+    print "Parameters are",pars
     for order in range(1,degree+1) :
+      print "\nBeginning order",order
 
-      lastorderdict = dividedDifferenceDatabase[int(order-1)]
-      thisorderdict = {}
+      thisorderdict = dividedDifferenceDatabase[int(order)]
 
-      for bin in range(self.histogram.GetNbinsX()+2 - order) :
-        fxa = lastorderdict[bin]
-        fxb = lastorderdict[bin+1]
-        diff = (fxb - fxa)/(self.binxvals[bin+order]-self.binxvals[bin])
+      #print self.binedges
+      for bin in range(0,len(self.binxvals) - order) :
         
         # Bins used range from bin to bin+degree inclusive.
         # Even orders use center of middle bin
@@ -151,12 +146,15 @@ class WrappedHist() :
           xval = self.binxvals[bin+int(float(order)/2.0)]
         # Odd orders use bin boundary between central two bins
         else :
-          xval = self.histogram.GetBinLowEdge(bin+int(numpy.ceil(float(order)/2.0)))
+          xval = self.binedges[bin+int(float(order)/2.0)+1]
 
-        thisorderdict[bin] = diff
-        graphs[order].SetPoint(bin,xval,diff)
-
-      dividedDifferenceDatabase[int(order)] = thisorderdict
+        #print "in bin",bin,":"
+        #print thisorderdict[bin]
+        code = """myfunc = lambda pars : {0}""".format(thisorderdict[bin])
+        exec code
+        graphs[order].SetPoint(bin,xval,myfunc(pars))
+  
+        print "At xval",xval,"assigning value",thisorderdict[bin]
 
     for order in range(1,degree+1) :
       code = "self.der{0} = graphs[{0}]".format(order)
