@@ -7,7 +7,7 @@ from art.morisot import Morisot
 import numpy
 
 import MathFunctions
-from HistWrapper import WrappedHist
+from HistWrapper import Dataset
 from FunctionlessFitter import FunctionlessFitter
 from SignificanceTests import getResidual
 from BumpHunter import BumpHunter
@@ -61,14 +61,15 @@ class RunFitter :
     self.outputFileName = "results/test/outputfile_3rdOrderConstraint.root"
 
     self.firstVal = 1100
-    self.lastVal = 7052
+    #self.lastVal = 7052
+    self.lastVal = 1500
 
     if self.firstVal < self.lowestVal :
       self.lowestVal = self.firstVal
     if self.lastVal > self.highestVal :
       self.highestVal = self.lastVal
     self.binLow = self.hist.FindBin(self.firstVal+1)
-    self.binHigh = -1
+    self.binHigh = self.hist.FindBin(self.lastVal-1)
     
     x = Symbol('x')
     y = par0*((1-x/13000.0)**par1)*((x/13000.0)**par2)
@@ -175,14 +176,14 @@ class RunFitter :
 
   def executeFit(self,name) :
 
-    wInput = WrappedHist(self.hist)
+    wInput = Dataset(self.hist)
     
     if self.binHigh < 0 :
       self.binHigh = wInput.lastBinWithData
     
     histForStartVals = self.hist.Clone()
     histForStartVals.SetName("histForStartVals")
-    getStartVals = WrappedHist(histForStartVals)
+    getStartVals = Dataset(histForStartVals)
     fullVals, xvals, widths, edges, w1, w2 = getStartVals.getSelectedBinInfo(self.binLow,self.binHigh)
     index = -1
     startVals = []
@@ -194,7 +195,7 @@ class RunFitter :
     
 #    result = self.myFitter.fit(wInput,self.binLow,self.binHigh)
 #    result.SetDirectory(0)
-#    wResult = WrappedHist(result)
+#    wResult = Dataset(result)
 
     # Get the residual of the hist
 #    residual = getResidual(self.hist,result,self.binLow,self.binHigh)
@@ -216,12 +217,12 @@ class RunFitter :
 #    bhStat = bumpHunter.doTest(wInput, wResult, self.binLow,self.binHigh)
 
     # Compare to nominal fit result from the old code
-    self.nominalFitFile.ls()
     #nominalFit = self.nominalFitFile.Get("basicBkgFrom4ParamFit")
     nominalFit = self.nominalFitFile.Get("nominal_simple")
     nominalFit.SetDirectory(0)
-    wNominal = WrappedHist(nominalFit)
-    wNominal.graphUpToNthDerivatives(4)
+    wNominal = Dataset(nominalFit)
+    print "About to graph, using self.binLow =",self.binLow,"and self.binHigh =",self.binHigh
+    wNominal.graphUpToNthDerivatives(4,self.binLow,self.binHigh)
     firstDerNom = wNominal.der1
     secondDerNom = wNominal.der2
     thirdDerNom = wNominal.der3

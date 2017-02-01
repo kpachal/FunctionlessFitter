@@ -2,7 +2,7 @@ import ROOT
 import numpy
 import StatisticalTest
 import FunctionlessFitter
-from HistWrapper import WrappedHist
+from HistWrapper import Dataset
 from MathFunctions import makeHistFromVector, getPValFromVecAndStat
 
 class PseudoExperimenter(object) :
@@ -37,7 +37,7 @@ class PseudoExperimenter(object) :
     
       if PE%50 == 0 : print "on PE",PE
 
-      PEHist = WrappedHist(bkgHist.poissonFluctuateBinByBin())
+      PEHist = Dataset(bkgHist.poissonFluctuateBinByBin())
 
       # Default: we throw PEs and compare directly to the nominal background
       # prediction rather than refitting
@@ -46,7 +46,7 @@ class PseudoExperimenter(object) :
       else :
         result = fitter.fit(PEHist,firstBinToUse,lastBinToUse)
         result.SetDirectory(0)
-        useBkg = WrappedHist(result)
+        useBkg = Dataset(result)
       
       statVector = []
       FUVector = []

@@ -3,20 +3,20 @@ import numpy
 import scipy
 import ROOT
 import math
-from HistWrapper import WrappedHist
+from HistWrapper import Dataset
 
 def getResidual(dataHist, bkgHist, firstBinToUse=-1, lastBinToUse=-1, errHist=None) :
 
-  if type(dataHist) is WrappedHist :
+  if type(dataHist) is Dataset :
     normData = dataHist.histogram
   else :
     normData = dataHist
-    dataHist = WrappedHist(normData)
-  if type(bkgHist) is WrappedHist :
+    dataHist = Dataset(normData)
+  if type(bkgHist) is Dataset :
     normBkg = bkgHist.histogram
   else :
     normBkg = bkgHist
-    bkgHist = WrappedHist(normBkg)
+    bkgHist = Dataset(normBkg)
 
   assert(normData.GetNbinsX()==normBkg.GetNbinsX())
 
@@ -67,16 +67,16 @@ def getResidual(dataHist, bkgHist, firstBinToUse=-1, lastBinToUse=-1, errHist=No
 
 def getRelativeDifference(dataHist, bkgHist, firstBinToUse=-1, lastBinToUse=-1) :
 
-  if type(dataHist) is WrappedHist :
+  if type(dataHist) is Dataset :
     normData = dataHist.histogram
   else :
     normData = dataHist
-    dataHist = WrappedHist(normData)
-  if type(bkgHist) is WrappedHist :
+    dataHist = Dataset(normData)
+  if type(bkgHist) is Dataset :
     normBkg = bkgHist.histogram
   else :
     normBkg = bkgHist
-    bkgHist = WrappedHist(normBkg)
+    bkgHist = Dataset(normBkg)
 
   assert(normData.GetNbinsX()==normBkg.GetNbinsX())
 
@@ -115,16 +115,16 @@ def getRelativeDifference(dataHist, bkgHist, firstBinToUse=-1, lastBinToUse=-1) 
 
 def getSignificanceOfDifference(dataHist, bkgHist, firstBinToUse=-1, lastBinToUse=-1) :
 
-  if type(dataHist) is WrappedHist :
+  if type(dataHist) is Dataset :
     normData = dataHist.histogram
   else :
     normData = dataHist
-    dataHist = WrappedHist(normData)
-  if type(bkgHist) is WrappedHist :
+    dataHist = Dataset(normData)
+  if type(bkgHist) is Dataset :
     normBkg = bkgHist.histogram
   else :
     normBkg = bkgHist
-    bkgHist = WrappedHist(normBkg)
+    bkgHist = Dataset(normBkg)
 
   assert(normData.GetNbinsX()==normBkg.GetNbinsX())
 

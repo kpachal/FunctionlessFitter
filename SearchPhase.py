@@ -6,7 +6,7 @@ import argparse
 import ConfigParser
 from operator import itemgetter
 
-from HistWrapper import WrappedHist
+from HistWrapper import Dataset
 from FunctionlessFitter import FunctionlessFitter
 from SignificanceTests import getResidual,getRelativeDifference,getSignificanceOfDifference
 from BumpHunter import BumpHunter
@@ -50,7 +50,7 @@ class RunSearchPhase :
     # Access input file and get histogram to fit
     basichist = self.readFile()
     # Make wrapped version which we will use for many tests
-    self.theHistogram = WrappedHist(basichist)#,scaleBy=1)
+    self.theHistogram = Dataset(basichist)#,scaleBy=1)
     #self.minX = self.minX
     #self.maxX = self.maxX
     
@@ -73,7 +73,7 @@ class RunSearchPhase :
     else :
       startVals = []
       self.histForStartVals.SetName("histForStartVals")
-      getStartVals = WrappedHist(self.histForStartVals)
+      getStartVals = Dataset(self.histForStartVals)
       fullVals, xvals, widths, edges, w1, w2 = getStartVals.getSelectedBinInfo(self.firstBinFit,self.lastBinFit)
       index = -1
       for item in fullVals :
@@ -87,7 +87,7 @@ class RunSearchPhase :
     # Fit the histogram
     prelim_result = self.myFitter.fit(self.theHistogram,self.firstBinFit,self.lastBinFit)
     prelim_result.SetName("prelim_result")
-    wTempResult = WrappedHist(prelim_result)
+    wTempResult = Dataset(prelim_result)
 
     # Make a bump hunter
     bumpHunter = BumpHunter()
@@ -141,7 +141,7 @@ class RunSearchPhase :
       prelim_result = self.myFitter.fit(self.theHistogram,self.firstBinFit,self.lastBinFit)
       prelim_result.SetName("intermediate_result")
       print "After fit"
-      wTempResult = WrappedHist(prelim_result)
+      wTempResult = Dataset(prelim_result)
 
       # Check the result, after excluding matching window from BH
       bumpHunter.excludeWindow = True
@@ -185,7 +185,7 @@ class RunSearchPhase :
     # Fit...
     final_result = self.myFitter.fit(self.theHistogram,self.firstBinFit,self.lastBinFit)#,errType="Bootstrap")
     final_result.SetName("final_result")
-    wResult = WrappedHist(final_result)
+    wResult = Dataset(final_result)
 
     # Other tools, however, should not exclude this window because we want an estimate of signal.
     bumpHunter.excludeWindow = False

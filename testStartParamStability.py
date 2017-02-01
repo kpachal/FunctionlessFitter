@@ -5,7 +5,7 @@ import scipy
 from decimal import *
 import argparse
 
-from HistWrapper import WrappedHist
+from HistWrapper import Dataset
 from FunctionlessFitter import FunctionlessFitter
 from SignificanceTests import getResidual
 from BumpHunter import BumpHunter
@@ -117,7 +117,7 @@ class RunFitter :
   
   def executeFit(self) :
 
-    wInput = WrappedHist(self.hist)
+    wInput = Dataset(self.hist)
 
     # Working: "data","linear","prelimFit"
     startVals = ["data"]#,"dataP5","exp","flat","linear","prelimFit"]
@@ -135,7 +135,7 @@ class RunFitter :
     datap5 = []
     startValHist = self.hist.Clone("startValHist")
     startValHist.SetName("startValHist")
-    getStartVals = WrappedHist(startValHist)
+    getStartVals = Dataset(startValHist)
     print getStartVals.lastBinWithData
     if self.binHigh < 0 :
       fullVals, xvals, widths, edges, w1, w2 = wInput.getSelectedBinInfo(self.binLow,getStartVals.lastBinWithData)

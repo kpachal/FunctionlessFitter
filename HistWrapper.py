@@ -4,7 +4,7 @@ from decimal import *
 getcontext().prec = 28
 import MathFunctions
 
-class WrappedHist() :
+class Dataset() :
 
   def __init__(self,inputHist, seed=0, binStructure="central") :
 
@@ -106,7 +106,12 @@ class WrappedHist() :
 
     return pseudoHist
 
-  def graphUpToNthDerivatives(self,degree) :
+  def graphUpToNthDerivatives(self,degree,binLow=-1,binHigh=-1) :
+    
+    if binHigh < 0 : binHigh = len(self.binxvals)
+    else : binHigh = binHigh - 1
+    if binLow < 0 : binLow = 0
+    else : binLow = binLow - 1
     
     # selectedbinvals = self.binxvals
     # scaleparsby = all 1's for representative result
@@ -138,7 +143,7 @@ class WrappedHist() :
       thisorderdict = dividedDifferenceDatabase[int(order)]
 
       #print self.binedges
-      for bin in range(0,len(self.binxvals) - order) :
+      for bin in range(binLow,binHigh - order) :
         
         # Bins used range from bin to bin+degree inclusive.
         # Even orders use center of middle bin
@@ -152,7 +157,7 @@ class WrappedHist() :
         #print thisorderdict[bin]
         code = """myfunc = lambda pars : {0}""".format(thisorderdict[bin])
         exec code
-        graphs[order].SetPoint(bin,xval,myfunc(pars))
+        graphs[order].SetPoint(bin-binLow,xval,myfunc(pars))
   
         print "At xval",xval,"assigning value",thisorderdict[bin]
 

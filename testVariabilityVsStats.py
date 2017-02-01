@@ -5,7 +5,7 @@ import scipy
 from decimal import *
 import argparse
 
-from HistWrapper import WrappedHist
+from HistWrapper import Dataset
 from FunctionlessFitter import FunctionlessFitter
 from SignificanceTests import getResidual
 from PseudoExperimenter import PseudoExperimenter
@@ -110,7 +110,7 @@ class RunFitter :
   
   def executeFit(self) :
 
-    wInput = WrappedHist(self.hist)
+    wInput = Dataset(self.hist)
 
     # Define various start values.
     startVals = "data"
@@ -121,7 +121,7 @@ class RunFitter :
     data = []
     startValHist = self.hist.Clone("startValHist")
     startValHist.SetName("startValHist")
-    getStartVals = WrappedHist(startValHist)
+    getStartVals = Dataset(startValHist)
     if self.binHigh < 0 :
       fullVals, xvals, widths, edges, w1, w2 = wInput.getSelectedBinInfo(self.binLow,getStartVals.lastBinWithData)
     else :

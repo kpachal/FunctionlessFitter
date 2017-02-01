@@ -3,7 +3,7 @@ import numpy
 import scipy
 from scipy import optimize
 from scipy import special
-from HistWrapper import WrappedHist
+from HistWrapper import Dataset
 from fractions import *
 from decimal import *
 getcontext().prec = 28
@@ -520,7 +520,7 @@ class FunctionlessFitter :
 
     # Only generate this once so the seed keeps
     # all following ones independent
-    nominalHistWrapper = WrappedHist(nominalHist)
+    nominalHistWrapper = Dataset(nominalHist)
 
     binArrays = []
     for bin in range(len(self.result)) :
@@ -530,7 +530,7 @@ class FunctionlessFitter :
     for PE in range(self.nPEs) :
 
       thisPE = nominalHistWrapper.poissonFluctuateBinByBin()
-      PEWrapper = WrappedHist(thisPE)
+      PEWrapper = Dataset(thisPE)
       # Need to reset thing we run on to be contents of thisPE
       self.selectedbincontents, self.selectedbinxvals, self.selectedbinwidths, self.selectedbinedges, self.windowLow, self.windowHigh = PEWrapper.getSelectedBinInfo(self.rangeLow,self.rangeHigh,self.firstBinInWindow,self.lastBinInWindow)
       thisStatus = scipy.optimize.minimize(self.function, self.parameterVals, method=self.minAlg, jac=self.function_der, bounds=self.myBounds, constraints=self.myConstraints, options=options_dict)
