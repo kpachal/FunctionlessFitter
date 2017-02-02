@@ -227,6 +227,7 @@ class RunFitter :
     secondDerNom = wNominal.der2
     thirdDerNom = wNominal.der3
     fourthDerNom = wNominal.der4
+    
 #    fifthDerNom = wNominal.der5
 #    sixthDerNom = wNominal.der6
 #    seventhDerNom = wNominal.der7

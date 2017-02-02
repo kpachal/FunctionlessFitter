@@ -6,19 +6,104 @@ import MathFunctions
 
 class Dataset() :
 
-  def __init__(self,inputHist, seed=0, binStructure="central") :
+  def __init__(self,inputProfile, seed=0, skipSetup=False) :
+    "Initialise Dataset from a ROOT TProfile"
+
+    # I know type checking is poor Python, but people *are* going
+    # to feed this histograms, and we simply need to be prepared for that.
+    if not type(inputProfile).__name__=="TProfile" :
+      raise TypeError("""\tThis is not a TProfile.\n\t\tYou gave me a {0}.\n\t\tUse another constructor or a different input.""".format(type(inputProfile).__name__))
+
+    if skipSetup :
+      self.profile = inputProfile
+      self.getHistFromTProfile()
+      self.getBinXValsFromTProfile()
+      
+    self.initGeneral()
+    return
+
+  @classmethod
+  def fromHistAndBinList(cls, inputHist, binSpecifier, seed=0) :
+    "Initialise Dataset from an input hist and a list of bin x-values"
+
+    if len(binSpecifier)!=inputHist.GetNbinsX() :
+      raise ValueError("""Vector of x-values must be same length
+                       as number of bins in histogram!""")
 
     self.histogram = inputHist
+    self.binxvals = binSpecifier
+    self.getTProfileFromHistAndVector()
+    return cls(self.profile,seed=0,skipSetup=True)
+    
+  @classmethod
+  def fromHistAndFunc(cls,inputHist,function,seed=0) :
+    "Initialise Dataset from an input hist and a function fitted to it"
 
+    self.histogram = inputHist
+    self.getTProfileFromHistAndFunction(inputHist,function)
+    return cls(self.profile,seed=0,skipSetup=True)
+
+  def initGeneral(self) :
+  
     self.getHistOutermostBinsWithData()
-    self.bincontents = []
-    self.binxvals = []
-    self.binedges = []
-    self.binwidths = []
     self.randomNumberGenerator = ROOT.TRandom3(seed)
-    self.recordBinXValsWidths(binStructure)
-
+  
     return
+
+  def getHistFromTProfile(self) :
+    self.histogram = inputProfile.ProjectionX("_hist","B")
+    return
+
+  def getBinXValsFromTProfile(self) :
+    self.binxvals = []
+    meanHist = inputProfile.ProjectionX("_means")
+    for bin in range(1,meanHist.GetNbinsX()+1) :
+      val = meanHist.GetBinContent(bin)
+      self.binxvals.push_back(val)
+    return
+
+  def getTProfileFromHistAndVector(self) :
+    name = self.histogram.GetName()+"_profile"
+    self.profile = ROOT.TProfile(name, name, self.histogram.GetNbinsX(), self.histogram.GetXbins().GetArray())
+    for xval, quantity in zip(self.binxvals,[self.histogram.GetBinContent(i) for i in range(1,self.histogram.GetNbinsX()+1)]) :
+      self.profile.Fill(xval,xval,quantity)
+    return
+
+  def getTProfileFromHistAndFunction(self,function) :
+    self.binxvals = []
+    name = self.histogram.GetName()+"_profile"
+    self.profile = ROOT.TProfile(name, name, self.historam.GetNbinsX(), self.histogram.GetXbins().GetArray())
+    for bin in range(self.histogram.GetNbinsX()+1) :
+      xlow = self.histogram.GetBinLowEdge(bin)
+      xhigh = self.histogram.GetBinLowEdge(bin+1)
+      integral = function.Integral(xlow,xhigh)
+      for x in range(0,100) :
+        xval = x*(xhigh-xlow)/100.0 + xlow
+        thisint = function.Integral(xlow,xval)
+        if thisint > 0.5*integral :
+          break
+      self.binxvals.append(xval)
+      self.profile.Fill(xval,xval,self.histogram.GetBinContent(bin))
+    return
+
+#  def estimateBinXValsFromHist(self,type,slope=-1) :
+#    self.binxvals = []
+#    for bin in range(1, self.histogram.GetNbinsX()+1) :
+#      if type=="central" :
+#        self.binxvals.append(Decimal(self.histogram.GetBinCenter(bin)))
+#      elif type=="exp" :
+#        print "exp"
+#        xlow = self.histogram.GetBinLowEdge(bin)
+#        xhigh = self.histogram.GetBinWidth(bin)+xlow
+#        ylow =
+#        exp =
+#      elif type=="linear" :
+#        xlow = self.histogram.GetBinLowEdge(bin)
+#        binwidth = self.histogram.GetBinWidth(bin)
+#        if slope < 0 :
+#          self.binxvals.append(Decimal(xlow+(1.0-1.0/numpy.sqrt(2.0))*binwidth))
+#      else :
+#        raise Exception( "Unrecognized bin center definition!" )
 
   def getHistOutermostBinsWithData(self,epsilon = -1) :
 
@@ -38,28 +123,6 @@ class Dataset() :
     self.firstBinWithData = firstBin
     self.lastBinWithData = lastBin
     return
-
-  def recordBinXValsWidths(self,type,slope=-1) :
-    self.binxvals = []
-    for bin in range(1, self.histogram.GetNbinsX()+1) :
-      if type=="central" :
-        self.binxvals.append(Decimal(self.histogram.GetBinCenter(bin)))
-      elif type=="exp" :
-        print "exp"
-        xlow = self.histogram.GetBinLowEdge(bin)
-        xhigh = self.histogram.GetBinWidth(bin)+xlow
-#        ylow =
-#        exp =
-      elif type=="linear" :
-        xlow = self.histogram.GetBinLowEdge(bin)
-        binwidth = self.histogram.GetBinWidth(bin)
-        if slope < 0 :
-          self.binxvals.append(Decimal(xlow+(1.0-1.0/numpy.sqrt(2.0))*binwidth))
-      else :
-        raise Exception( "Unrecognized bin center definition!" )
-      self.binedges.append(Decimal(self.histogram.GetBinLowEdge(bin)))
-      self.binwidths.append(Decimal(self.histogram.GetBinWidth(bin)))
-      self.bincontents.append(Decimal(self.histogram.GetBinContent(bin)))
 
   def getSelectedBinInfo(self,rangeLow,rangeHigh,windowLow=-1,windowHigh=-1) :
     selectedbincontents = []
@@ -108,16 +171,16 @@ class Dataset() :
 
   def graphUpToNthDerivatives(self,degree,binLow=-1,binHigh=-1) :
     
-    if binHigh < 0 : binHigh = len(self.binxvals)
-    else : binHigh = binHigh - 1
-    if binLow < 0 : binLow = 0
-    else : binLow = binLow - 1
+    if binHigh < 0 : binHigh = self.histogram.GetNbinsX()
+    if binLow < 0 : binLow = 1
     
     # selectedbinvals = self.binxvals
     # scaleparsby = all 1's for representative result
-    scaleparsby = MathFunctions.getFlatVector(len(self.binxvals),1.0)
+    scaleparsby = MathFunctions.getFlatVector(binHigh-binLow+1,1.0)
     
-    dividedDifferenceDatabase, jacobianDatabase = MathFunctions.computeDividedDifferences(degree,self.binxvals,self.binedges,scaleparsby)
+    usebincontents,usebinxvals,usebinwidths,usebinedges,useindexLow,useindexHigh = self.getSelectedBinInfo(binLow,binHigh)
+    
+    dividedDifferenceDatabase, jacobianDatabase = MathFunctions.computeDividedDifferences(degree,usebinxvals,usebinedges,scaleparsby)
     
     graphs = {}
     for order in range(1,degree+1) :
@@ -135,31 +198,32 @@ class Dataset() :
       graphs[order] = graph
 
     # Parameters are equivalent of bin values divided by binxvals
-    pars = numpy.divide(self.bincontents,self.binwidths)
+    print "usebincontents:",usebincontents
+    print "usebinwidths:",usebinwidths
+    pars = numpy.divide(usebincontents,usebinwidths)
     print "Parameters are",pars
     for order in range(1,degree+1) :
       print "\nBeginning order",order
 
       thisorderdict = dividedDifferenceDatabase[int(order)]
 
-      #print self.binedges
-      for bin in range(binLow,binHigh - order) :
+      for bin in range(0,binHigh - binLow - order) :
         
         # Bins used range from bin to bin+degree inclusive.
         # Even orders use center of middle bin
         if order%2==0 :
-          xval = self.binxvals[bin+int(float(order)/2.0)]
+          xval = usebinxvals[bin+int(float(order)/2.0)]
         # Odd orders use bin boundary between central two bins
         else :
-          xval = self.binedges[bin+int(float(order)/2.0)+1]
+          xval = usebinedges[bin+int(float(order)/2.0)+1]
 
         #print "in bin",bin,":"
         #print thisorderdict[bin]
         code = """myfunc = lambda pars : {0}""".format(thisorderdict[bin])
         exec code
-        graphs[order].SetPoint(bin-binLow,xval,myfunc(pars))
+        graphs[order].SetPoint(bin,xval,myfunc(pars))
   
-        print "At xval",xval,"assigning value",thisorderdict[bin]
+        print "At xval",xval,"assigning value",myfunc(pars)#thisorderdict[bin]
 
     for order in range(1,degree+1) :
       code = "self.der{0} = graphs[{0}]".format(order)
