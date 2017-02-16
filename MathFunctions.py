@@ -22,6 +22,9 @@ def computeDividedDifferences(degree,selectedbinxvals,selectedbinedges,scalePars
     # higher order derivatives and jacobians
     for order in range(1,degree+1) :
 
+      if not order < len(selectedbinxvals) :
+        raise ValueError("You have only {0} selected bins: you cannot use constraints of such high order!\n Extend the range or reduce the constraints.".format(len(selectedbinxvals)))
+
       lastorderdict = dividedDifferenceDatabase[int(order-1)]
       thisorderdict = {}
  

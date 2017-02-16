@@ -22,6 +22,13 @@ class FunctionlessFitter :
     self.lastBinInWindow = -1
     self.userStartVals = []
     self.nPEs = 10
+
+    # If for instance you got your start values
+    # from a function and you really trust them,
+    # this isn't necessary
+    self.skipSmooth = False
+    
+    self.timer = ROOT.TStopwatch()
     
     # Fitter internal parameters
     
@@ -221,6 +228,9 @@ class FunctionlessFitter :
 
   def fit(self,spectrum,firstBin=-1,lastBin=-1, errType = "None") :
 
+    #print self.__dict__
+    #return
+    
     if firstBin < 0 or firstBin > spectrum.histogram.GetNbinsX() :
       self.rangeLow = spectrum.firstBinWithData
     else : self.rangeLow = firstBin
@@ -265,9 +275,11 @@ class FunctionlessFitter :
     self.myBounds = self.boundPositive()
     
     # Calculate values to use for constraints: saves us doing it later
+    print "Calculating derivate values to use for constraints"
     orders = self.derivativeConstraints.keys()
 
     # Unscaled version
+    print "  --> unscaled version"
     self.scaleParsBy = MathFunctions.getFlatVector(len(self.selectedbinxvals),1.0)
     self.dividedDifferenceDatabase,self.jacobianDatabase = MathFunctions.computeDividedDifferences(max(orders),self.selectedbinxvals,self.selectedbinedges, self.scaleParsBy)
     self.unscaledConstraints = []
@@ -276,6 +288,7 @@ class FunctionlessFitter :
       self.unscaledConstraints = self.unscaledConstraints + self.getDerivativeConstraints(order,slope)
 
     # Scaled version (default)
+    print "  --> scaled version"
     self.scaleParsBy = spectrum.scaleFactors
     self.dividedDifferenceDatabase,self.jacobianDatabase = MathFunctions.computeDividedDifferences(max(orders),self.selectedbinxvals,self.selectedbinedges, self.scaleParsBy)
     self.myConstraints = []
@@ -283,7 +296,11 @@ class FunctionlessFitter :
     for order in orders :
       slope = self.derivativeConstraints[order]
       self.myConstraints = self.myConstraints + self.getDerivativeConstraints(order,slope)
-
+    
+    # Time reporting will help quantify performance
+    print "Begin timer for core procedure."
+    self.timer.Start()
+    
     debug = False
 
     # Add smoothing routine for user-supplied start values
@@ -293,7 +310,7 @@ class FunctionlessFitter :
     #looseOpts = {'disp': True, 'maxiter':1000, 'rhobeg':50, 'tol':1e-7, 'catol':1e-2} # 2 and 2 good.
     #looseOpts = {'disp': True, 'maxiter':1000, 'rhobeg':1e5, 'tol':1e-6, 'catol':1e-2} # 2 and 2 good.
     looseOpts = {'disp': True, 'maxiter':1000,'catol':1e-2} # 2 and 2 good.
-    if self.startValFormat == "user" :
+    if self.startValFormat == "user" and not self.skipSmooth :
       # If we are using start values within an even vaguely reasonable distance of the
       # final result, we get our best chance by taking smaller steps and combing the
       # parameter space thoroughly. Use unscaled parameters.
@@ -346,6 +363,10 @@ class FunctionlessFitter :
 
     self.result = numpy.multiply([Decimal(val) for val in status.x],self.scaleParsBy)
 
+    # Report time for core fit
+    print "Fit completed in",self.timer.CpuTime()
+    self.timer.Stop()
+    self.timer.Reset()
 
     # Return a histogram with bin contents equal to fit results
     outputHist = spectrum.histogram.Clone("fitResult")

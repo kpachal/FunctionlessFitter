@@ -3,51 +3,43 @@ import numpy
 from decimal import *
 getcontext().prec = 28
 import MathFunctions
+from array import array
 
 class Dataset() :
 
-  def __init__(self,inputProfile, seed=0, skipSetup=False) :
-    "Initialise Dataset from a ROOT TProfile"
+  def __init__(self, inputData, binSpecifier=None, function=None, seed=0) :
 
-    # I know type checking is poor Python, but people *are* going
-    # to feed this histograms, and we simply need to be prepared for that.
-    if not type(inputProfile).__name__=="TProfile" :
-      raise TypeError("""\tThis is not a TProfile.\n\t\tYou gave me a {0}.\n\t\tUse another constructor or a different input.""".format(type(inputProfile).__name__))
+    if "TProfile" not in type(inputData).__name__ and "TH1" not in type(inputData).__name__ :
+      raise TypeError("""\tThis is not a TProfile or a TH1.\n\t\tYou gave me a {0}. \n\t\tNo other data formats are accepted.""".format(type(inputProfile).__name__))
 
-    if skipSetup :
-      self.profile = inputProfile
-      self.getHistFromTProfile()
-      self.getBinXValsFromTProfile()
-      
-    self.initGeneral()
-    return
-
-  @classmethod
-  def fromHistAndBinList(cls, inputHist, binSpecifier, seed=0) :
-    "Initialise Dataset from an input hist and a list of bin x-values"
-
-    if len(binSpecifier)!=inputHist.GetNbinsX() :
-      raise ValueError("""Vector of x-values must be same length
+    if "TProfile" not in type(inputData).__name__ :
+      if not binSpecifier and not function :
+        raise TypeError("""\tThis is not a TProfile.\n\t\tYou gave me a {0}.\n\t\tAdd a function or a vector of bin centers to use this.""".format(type(inputProfile).__name__))
+      if binSpecifier :
+        if len(binSpecifier)!=inputData.GetNbinsX() :
+          raise ValueError("""Vector of x-values must be same length
                        as number of bins in histogram!""")
 
-    self.histogram = inputHist
-    self.binxvals = binSpecifier
-    self.getTProfileFromHistAndVector()
-    return cls(self.profile,seed=0,skipSetup=True)
-    
-  @classmethod
-  def fromHistAndFunc(cls,inputHist,function,seed=0) :
-    "Initialise Dataset from an input hist and a function fitted to it"
+        self.histogram = inputData
+        self.binxvals = [Decimal(item) for item in binSpecifier]
+        self.getTProfileFromHistAndVector()
 
-    self.histogram = inputHist
-    self.getTProfileFromHistAndFunction(inputHist,function)
-    return cls(self.profile,seed=0,skipSetup=True)
+      else :
+        self.histogram = inputData
+        self.getTProfileFromHistAndFunction(function)
 
-  def initGeneral(self) :
-  
+    else :
+      self.profile = inputData
+      self.getHistFromTProfile()
+      self.getBinXValsFromTProfile()
+
     self.getHistOutermostBinsWithData()
     self.randomNumberGenerator = ROOT.TRandom3(seed)
   
+    print "bin xvals are:"
+    print self.binxvals
+    print "with length",len(self.binxvals)
+    
     return
 
   def getHistFromTProfile(self) :
@@ -59,51 +51,45 @@ class Dataset() :
     meanHist = inputProfile.ProjectionX("_means")
     for bin in range(1,meanHist.GetNbinsX()+1) :
       val = meanHist.GetBinContent(bin)
-      self.binxvals.push_back(val)
+      self.binxvals.push_back(Decimal(val))
     return
 
   def getTProfileFromHistAndVector(self) :
+    print "Getting bins from vector"
     name = self.histogram.GetName()+"_profile"
-    self.profile = ROOT.TProfile(name, name, self.histogram.GetNbinsX(), self.histogram.GetXbins().GetArray())
+    self.profile = self.makeTProfileFromBins(self.histogram, name)
     for xval, quantity in zip(self.binxvals,[self.histogram.GetBinContent(i) for i in range(1,self.histogram.GetNbinsX()+1)]) :
       self.profile.Fill(xval,xval,quantity)
     return
 
   def getTProfileFromHistAndFunction(self,function) :
+    print "Getting bins from function"
     self.binxvals = []
     name = self.histogram.GetName()+"_profile"
-    self.profile = ROOT.TProfile(name, name, self.historam.GetNbinsX(), self.histogram.GetXbins().GetArray())
-    for bin in range(self.histogram.GetNbinsX()+1) :
+    self.profile = self.makeTProfileFromBins(self.histogram,name)
+    for bin in range(1,self.histogram.GetNbinsX()+1) :
       xlow = self.histogram.GetBinLowEdge(bin)
       xhigh = self.histogram.GetBinLowEdge(bin+1)
       integral = function.Integral(xlow,xhigh)
+      #print "Func and low and high edges of bin",bin,"is",function.Eval(xlow),function.Eval(xhigh),". Integral",integral
       for x in range(0,100) :
         xval = x*(xhigh-xlow)/100.0 + xlow
         thisint = function.Integral(xlow,xval)
+        #print "testing xval",xval,": integral",xlow,xval,"=",thisint,". Compare to",0.5*integral
         if thisint > 0.5*integral :
           break
-      self.binxvals.append(xval)
+      #print "for bin",bin,"kept xval",xval
+      self.binxvals.append(Decimal(xval))
       self.profile.Fill(xval,xval,self.histogram.GetBinContent(bin))
     return
 
-#  def estimateBinXValsFromHist(self,type,slope=-1) :
-#    self.binxvals = []
-#    for bin in range(1, self.histogram.GetNbinsX()+1) :
-#      if type=="central" :
-#        self.binxvals.append(Decimal(self.histogram.GetBinCenter(bin)))
-#      elif type=="exp" :
-#        print "exp"
-#        xlow = self.histogram.GetBinLowEdge(bin)
-#        xhigh = self.histogram.GetBinWidth(bin)+xlow
-#        ylow =
-#        exp =
-#      elif type=="linear" :
-#        xlow = self.histogram.GetBinLowEdge(bin)
-#        binwidth = self.histogram.GetBinWidth(bin)
-#        if slope < 0 :
-#          self.binxvals.append(Decimal(xlow+(1.0-1.0/numpy.sqrt(2.0))*binwidth))
-#      else :
-#        raise Exception( "Unrecognized bin center definition!" )
+  def makeTProfileFromBins(self,hist,newname) :
+    testBinArray = hist.GetXaxis().GetXbins()
+    if len(testBinArray) > 0 :
+      profile = ROOT.TProfile(newname,newname,hist.GetNbinsX(),array('d',testBinArray))
+    else :
+      profile = ROOT.TProfile(newname,newname,hist.GetNbinsX(),hist.GetBinLowEdge(1),hist.GetBinLowEdge(hist.GetNbinsX()+1))
+    return profile
 
   def getHistOutermostBinsWithData(self,epsilon = -1) :
 
