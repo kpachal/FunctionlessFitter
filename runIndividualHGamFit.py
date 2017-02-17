@@ -4,7 +4,6 @@ import ROOT
 import scipy
 import argparse
 from sympy import *
-from art.morisot import Morisot
 import numpy
 
 import MathFunctions
@@ -21,7 +20,6 @@ class RunFitter :
   def __init__(self) :
     # Make a fitter
     self.myFitter = FunctionlessFitter()
-    self.myPainter = Morisot()
 
     self.myFitter.derivativeConstraints = {0:-1, 1:1, 2:-1, 3:1}
     self.myFitter.skipSmooth = True
