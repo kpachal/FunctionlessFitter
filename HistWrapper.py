@@ -35,10 +35,6 @@ class Dataset() :
 
     self.getHistOutermostBinsWithData()
     self.randomNumberGenerator = ROOT.TRandom3(seed)
-  
-    print "bin xvals are:"
-    print self.binxvals
-    print "with length",len(self.binxvals)
     
     return
 
@@ -184,12 +180,12 @@ class Dataset() :
       graphs[order] = graph
 
     # Parameters are equivalent of bin values divided by binxvals
-    print "usebincontents:",usebincontents
-    print "usebinwidths:",usebinwidths
+    #print "usebincontents:",usebincontents
+    #print "usebinwidths:",usebinwidths
     pars = numpy.divide(usebincontents,usebinwidths)
-    print "Parameters are",pars
+    #print "Parameters are",pars
     for order in range(1,degree+1) :
-      print "\nBeginning order",order
+      #print "\nBeginning order",order
 
       thisorderdict = dividedDifferenceDatabase[int(order)]
 
@@ -209,7 +205,7 @@ class Dataset() :
         exec code
         graphs[order].SetPoint(bin,xval,myfunc(pars))
   
-        print "At xval",xval,"assigning value",myfunc(pars)#thisorderdict[bin]
+        #print "At xval",xval,"assigning value",myfunc(pars)#thisorderdict[bin]
 
     for order in range(1,degree+1) :
       code = "self.der{0} = graphs[{0}]".format(order)

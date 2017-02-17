@@ -22,6 +22,7 @@ class FunctionlessFitter :
     self.lastBinInWindow = -1
     self.userStartVals = []
     self.nPEs = 10
+    self.lastFitTime = 0
 
     # If for instance you got your start values
     # from a function and you really trust them,
@@ -227,9 +228,6 @@ class FunctionlessFitter :
     return constraints
 
   def fit(self,spectrum,firstBin=-1,lastBin=-1, errType = "None") :
-
-    #print self.__dict__
-    #return
     
     if firstBin < 0 or firstBin > spectrum.histogram.GetNbinsX() :
       self.rangeLow = spectrum.firstBinWithData
@@ -364,6 +362,7 @@ class FunctionlessFitter :
     self.result = numpy.multiply([Decimal(val) for val in status.x],self.scaleParsBy)
 
     # Report time for core fit
+    self.lastFitTime = self.timer.CpuTime()
     print "Fit completed in",self.timer.CpuTime()
     self.timer.Stop()
     self.timer.Reset()
