@@ -51,8 +51,6 @@ class RunSearchPhase :
     basichist = self.readFile()
     # Make wrapped version which we will use for many tests
     self.theHistogram = Dataset(basichist)#,scaleBy=1)
-    #self.minX = self.minX
-    #self.maxX = self.maxX
     
     # Get range for fit
     if self.minX > self.theHistogram.histogram.GetBinLowEdge(self.theHistogram.lastBinWithData+1)\
@@ -86,8 +84,7 @@ class RunSearchPhase :
 
     # Fit the histogram
     prelim_result = self.myFitter.fit(self.theHistogram,self.firstBinFit,self.lastBinFit)
-    prelim_result.SetName("prelim_result")
-    wTempResult = Dataset(prelim_result)
+    prelim_result.setName("preliminary_result")
 
     # Make a bump hunter
     bumpHunter = BumpHunter()
@@ -97,7 +94,7 @@ class RunSearchPhase :
     
     # Use it to get a p-value for the spectrum:
     PEMaker = PseudoExperimenter()
-    prelimPEDict = PEMaker.getPseudoexperiments(self.theHistogram,wTempResult,bumpHunter,self.firstBinFit,self.lastBinFit,nPEs=min(self.nPseudoExpBH,100))
+    prelimPEDict = PEMaker.getPseudoexperiments(self.theHistogram,prelim_result,bumpHunter,self.firstBinFit,self.lastBinFit,nPEs=min(self.nPseudoExpBH,100))
     BHPVal = prelimPEDict[0]["pValue"]
     firstBinInWindow = prelimPEDict[0]["furtherInformation"][0]
     lastBinInWindow = prelimPEDict[0]["furtherInformation"][1]
@@ -121,7 +118,7 @@ class RunSearchPhase :
       if firstBinInWindow == self.firstBinFit :
       
         # Need to re-BumpHunt data to get rid of result coming from pseudoexperiments
-        bumpHunter.doTest(self.theHistogram, wTempResult, self.firstBinFit,self.lastBinFit)
+        bumpHunter.doTest(self.theHistogram, prelim_result, self.firstBinFit,self.lastBinFit)
         allStats = bumpHunter.bumpInfoList
         sortedStats = sorted(allStats, key=itemgetter("prob"))
         print "Originally found most discrepant prob.", sortedStats[0]["prob"]
@@ -139,15 +136,14 @@ class RunSearchPhase :
       
       print "About to do fit"
       prelim_result = self.myFitter.fit(self.theHistogram,self.firstBinFit,self.lastBinFit)
-      prelim_result.SetName("intermediate_result")
+      prelim_result.setName("intermediate_result")
       print "After fit"
-      wTempResult = Dataset(prelim_result)
 
       # Check the result, after excluding matching window from BH
       bumpHunter.excludeWindow = True
       bumpHunter.firstBinToExclude = firstBinInWindow
       bumpHunter.lastBinToExclude = lastBinInWindow
-      prelimPEDict = PEMaker.getPseudoexperiments(self.theHistogram,wTempResult,bumpHunter,self.firstBinFit,self.lastBinFit,nPEs=min(self.nPseudoExpBH,100))
+      prelimPEDict = PEMaker.getPseudoexperiments(self.theHistogram,prelim_result,bumpHunter,self.firstBinFit,self.lastBinFit,nPEs=min(self.nPseudoExpBH,100))
 
       # Update p-value.
       # If it is good enough this will be the (nearly) final window location.
@@ -182,11 +178,14 @@ class RunSearchPhase :
     else :
       self.myFitter.excludeWindow = False
 
+    # Use output from preliminary fit as input to speed things along.
+    # This also means we don't need smoothing.
+    self.myFitter.userStartVals = self.myFitter.result
+    self.myFitter.skipSmooth = True
     # Fit...
     final_result = self.myFitter.fit(self.theHistogram,self.firstBinFit,self.lastBinFit)#,errType="Bootstrap")
-    final_result.SetName("final_result")
-    wResult = Dataset(final_result)
-
+    final_result.setName("final_result")
+    
     # Other tools, however, should not exclude this window because we want an estimate of signal.
     bumpHunter.excludeWindow = False
     mychi2Test = Chi2Test()
@@ -195,19 +194,18 @@ class RunSearchPhase :
     myLogLTest.excludeWindow = False
 
     # Bump hunt fitted data
-    finalPEDict = PEMaker.getPseudoexperiments(self.theHistogram,wResult,[bumpHunter,mychi2Test,myLogLTest],self.firstBinFit,self.lastBinFit,nPEs=self.nPseudoExpBH)
+    finalPEDict = PEMaker.getPseudoexperiments(self.theHistogram,final_result,[bumpHunter,mychi2Test,myLogLTest],self.firstBinFit,self.lastBinFit,nPEs=self.nPseudoExpBH)
     # Collect statistics
     BHDict = finalPEDict[0]
     Chi2Dict = finalPEDict[1]
     LogLDict = finalPEDict[2]
 
     # Get the residual of the hist
-    residual = getResidual(basichist,final_result,self.firstBinFit,self.lastBinFit)
-    residual.SetDirectory(0)
+    residual = getResidual(self.theHistogram,final_result,self.firstBinFit,self.lastBinFit)
 
     # Get other significance plots
-    relativeDiffHist = getRelativeDifference(basichist,final_result,self.firstBinFit,self.lastBinFit)
-    #sigOfDiffHist = getSignificanceOfDifference(basichist,final_result,self.firstBinFit,self.lastBinFit)
+    relativeDiffHist = getRelativeDifference(self.theHistogram,final_result,self.firstBinFit,self.lastBinFit)
+    #sigOfDiffHist = getSignificanceOfDifference(self.theHistogram,final_result,self.firstBinFit,self.lastBinFit)
 
     # Evaluate distribution of residuals.
     residualBins = []
@@ -224,11 +222,11 @@ class RunSearchPhase :
     print "Gaussian mean and width were",gausmean,gauswidth
 
     ## Plot histogram's derivatives
-    wResult.graphUpToNthDerivatives(4)
-    firstDerivative = wResult.der1
-    secondDerivative = wResult.der2
-    thirdDerivative = wResult.der3
-    fourthDerivative = wResult.der4
+    final_result.graphUpToNthDerivatives(4)
+    firstDerivative = final_result.der1
+    secondDerivative = final_result.der2
+    thirdDerivative = final_result.der3
+    fourthDerivative = final_result.der4
 
     # Write everything to a file
     print "Making file",self.outputFileName
@@ -236,7 +234,7 @@ class RunSearchPhase :
     outputFile.cd()
     
     basichist.Write("basicData")
-    final_result.Write("basicBkg")
+    final_result.histogram.Write("basicBkg")
     residual.Write("residual")
     resDistHist.Write("residualDistribution")
     fittedGauss.Write("gausFitToResidualDist")

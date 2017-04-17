@@ -5,16 +5,34 @@ getcontext().prec = 28
 import MathFunctions
 from array import array
 
-class Dataset() :
+class Dataset(object) :
 
-  def __init__(self, inputData, binSpecifier=None, function=None, seed=0) :
+  def __init__(self, inputData, binSpecifier=None, function=None, seed=0, baseName = "") :
+
+    # Construct one dataset from another dataset
+    if "Dataset" in type(inputData).__name__ :
+      if not baseName :
+        self.baseName = inputData.baseName+"_clone"
+      else :
+        self.baseName = baseName
+      self.histogram = inputData.histogram
+      self.profile = inputData.profile
+      self.getBinXValsFromTProfile()
+      self.getHistOutermostBinsWithData()
+      self.randomNumberGenerator = ROOT.TRandom3(seed)
+      return
+    
+    if not baseName :
+      self.baseName = inputData.GetName()
+    else :
+      self.baseName = baseName
 
     if "TProfile" not in type(inputData).__name__ and "TH1" not in type(inputData).__name__ :
-      raise TypeError("""\tThis is not a TProfile or a TH1.\n\t\tYou gave me a {0}. \n\t\tNo other data formats are accepted.""".format(type(inputProfile).__name__))
+      raise TypeError("""\tThis is not a TProfile or a TH1.\n\t\tYou gave me a {0}. \n\t\tNo other data formats are accepted.""".format(type(inputData).__name__))
 
     if "TProfile" not in type(inputData).__name__ :
       if not binSpecifier and not function :
-        raise TypeError("""\tThis is not a TProfile.\n\t\tYou gave me a {0}.\n\t\tAdd a function or a vector of bin centers to use this.""".format(type(inputProfile).__name__))
+        raise TypeError("""\tThis is not a TProfile.\n\t\tYou gave me a {0}.\n\t\tAdd a function or a vector of bin centers to use this.""".format(type(inputData).__name__))
       if binSpecifier :
         if len(binSpecifier)!=inputData.GetNbinsX() :
           raise ValueError("""Vector of x-values must be same length
@@ -39,29 +57,30 @@ class Dataset() :
     return
 
   def getHistFromTProfile(self) :
-    self.histogram = inputProfile.ProjectionX("_hist","B")
+    self.histogram = self.profile.ProjectionX(self.baseName+"_hist","B")
     return
 
   def getBinXValsFromTProfile(self) :
     self.binxvals = []
-    meanHist = inputProfile.ProjectionX("_means")
+    meanHist = self.profile.ProjectionX(self.baseName+"_means")
     for bin in range(1,meanHist.GetNbinsX()+1) :
       val = meanHist.GetBinContent(bin)
-      self.binxvals.push_back(Decimal(val))
+      if val > 0 :
+        self.binxvals.append(Decimal(val))
+      else :
+        self.binxvals.append(Decimal(meanHist.GetBinCenter(bin)))
     return
 
   def getTProfileFromHistAndVector(self) :
-    print "Getting bins from vector"
-    name = self.histogram.GetName()+"_profile"
+    name = self.baseName+"_profile"
     self.profile = self.makeTProfileFromBins(self.histogram, name)
     for xval, quantity in zip(self.binxvals,[self.histogram.GetBinContent(i) for i in range(1,self.histogram.GetNbinsX()+1)]) :
       self.profile.Fill(xval,xval,quantity)
     return
 
   def getTProfileFromHistAndFunction(self,function) :
-    print "Getting bins from function"
     self.binxvals = []
-    name = self.histogram.GetName()+"_profile"
+    name = self.baseName+"_profile"
     self.profile = self.makeTProfileFromBins(self.histogram,name)
     for bin in range(1,self.histogram.GetNbinsX()+1) :
       xlow = self.histogram.GetBinLowEdge(bin)
@@ -86,6 +105,12 @@ class Dataset() :
     else :
       profile = ROOT.TProfile(newname,newname,hist.GetNbinsX(),hist.GetBinLowEdge(1),hist.GetBinLowEdge(hist.GetNbinsX()+1))
     return profile
+
+  def setName(self,newname) :
+
+    self.baseName = newname
+    self.histogram.SetName(self.baseName+"_hist")
+    self.profile.SetName(self.baseName+"_profile")
 
   def getHistOutermostBinsWithData(self,epsilon = -1) :
 

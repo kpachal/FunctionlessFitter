@@ -37,7 +37,7 @@ class PseudoExperimenter(object) :
     
       if PE%50 == 0 : print "on PE",PE
 
-      PEHist = Dataset(bkgHist.poissonFluctuateBinByBin())
+      PEHist = Dataset(bkgHist.poissonFluctuateBinByBin(),binSpecifier=bkgHist.binxvals,baseName="toy{0}".format(PE))
 
       # Default: we throw PEs and compare directly to the nominal background
       # prediction rather than refitting

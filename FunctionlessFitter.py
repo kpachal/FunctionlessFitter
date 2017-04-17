@@ -407,7 +407,7 @@ class FunctionlessFitter :
     else :
       print "Unknown error type specified!"
       print "Fit result will be returned without uncertainties."
-    return outputHist
+    return Dataset(outputHist,spectrum.binxvals)
     
   def computeLogL(self,obs,exp) :
 

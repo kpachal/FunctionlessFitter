@@ -5,18 +5,18 @@ import ROOT
 import math
 from HistWrapper import Dataset
 
-def getResidual(dataHist, bkgHist, firstBinToUse=-1, lastBinToUse=-1, errHist=None) :
+def getResidual(dataHist, bkgHist, firstBinToUse=-1, lastBinToUse=-1, errHist=None, baseName=None) :
 
   if type(dataHist) is Dataset :
     normData = dataHist.histogram
   else :
     normData = dataHist
-    dataHist = Dataset(normData)
+    dataHist = Dataset(normData,baseName = dataHist.GetName()+"_res")
   if type(bkgHist) is Dataset :
     normBkg = bkgHist.histogram
   else :
     normBkg = bkgHist
-    bkgHist = Dataset(normBkg)
+    bkgHist = Dataset(normBkg,baseName = bkgHist.GetName()+"_res")
 
   assert(normData.GetNbinsX()==normBkg.GetNbinsX())
 
@@ -65,18 +65,18 @@ def getResidual(dataHist, bkgHist, firstBinToUse=-1, lastBinToUse=-1, errHist=No
 
   return result
 
-def getRelativeDifference(dataHist, bkgHist, firstBinToUse=-1, lastBinToUse=-1) :
+def getRelativeDifference(dataHist, bkgHist, firstBinToUse=-1, lastBinToUse=-1, baseName=None) :
 
   if type(dataHist) is Dataset :
     normData = dataHist.histogram
   else :
     normData = dataHist
-    dataHist = Dataset(normData)
+    dataHist = Dataset(normData,baseName = dataHist.GetName()+"_rel")
   if type(bkgHist) is Dataset :
     normBkg = bkgHist.histogram
   else :
     normBkg = bkgHist
-    bkgHist = Dataset(normBkg)
+    bkgHist = Dataset(normBkg,baseName = bkgHist.GetName()+"_rel")
 
   assert(normData.GetNbinsX()==normBkg.GetNbinsX())
 
@@ -113,18 +113,18 @@ def getRelativeDifference(dataHist, bkgHist, firstBinToUse=-1, lastBinToUse=-1) 
 
   return result
 
-def getSignificanceOfDifference(dataHist, bkgHist, firstBinToUse=-1, lastBinToUse=-1) :
+def getSignificanceOfDifference(dataHist, bkgHist, firstBinToUse=-1, lastBinToUse=-1, baseName=None) :
 
   if type(dataHist) is Dataset :
     normData = dataHist.histogram
   else :
     normData = dataHist
-    dataHist = Dataset(normData)
+    dataHist = Dataset(normData,baseName = dataHist.GetName()+"_sig")
   if type(bkgHist) is Dataset :
     normBkg = bkgHist.histogram
   else :
     normBkg = bkgHist
-    bkgHist = Dataset(normBkg)
+    bkgHist = Dataset(normBkg,baseName = bkgHist.GetName()+"_sig")
 
   assert(normData.GetNbinsX()==normBkg.GetNbinsX())
 
